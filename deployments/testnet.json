@@ -839,5 +839,61 @@
       "hash": "EsjwDwwzc1zRb1daC4S6YEVnbgtLVTDhiuwDd9VYcCPK",
       "at": "2026-11-14T19:23:56.363Z"
     }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "claims": [
+        0,
+        1,
+        2
+      ],
+      "outcome": "Void",
+      "note": "The script sent the 12 commit votes one at a time and missed the 90 s commit window. Per RULES 7: bonds refunded, non-revealing jurors slashed."
+    },
+    {
+      "round": 2,
+      "claims": [
+        3,
+        4,
+        5
+      ],
+      "outcome": "Rejected",
+      "note": "A wiring bug in our juror client made the posture lookup throw, so check 6 failed closed and every juror voted reject, including on two genuine losses. Nothing unverified was paid. Fixed in agents/juror.mjs."
+    },
+    {
+      "round": 3,
+      "claims": [
+        6,
+        7,
+        8
+      ],
+      "outcome": "Void",
+      "note": "Commits were still sequential; the last one missed its deadline and the script exited before the reveal phase."
+    },
+    {
+      "round": 4,
+      "claims": [
+        9,
+        10,
+        11
+      ],
+      "outcome": "Void",
+      "note": "All 12 commits landed, but no reveal landed inside the reveal window."
+    },
+    {
+      "round": 5,
+      "claims": [
+        12,
+        13,
+        14
+      ],
+      "outcome": "Resolved",
+      "note": "Correct outcomes: two genuine losses paid, the posture liar rejected, the juror who never revealed slashed."
+    }
+  ],
+  "notes": [
+    "A Void or Rejected claim permanently consumes its loss transaction hash, so every round used fresh loss transfers.",
+    "Before round 3 the wallet owner (backstop-hq.testnet) raised the daily cap on bea.backstop-hq.testnet from 0.5 to 2 NEAR with set_policy so the scripted 0.2 NEAR loss could repeat. Daily cap is not a posture signal; bea still verifies 90."
   ]
 }
