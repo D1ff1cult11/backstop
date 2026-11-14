@@ -117,7 +117,10 @@ async function main() {
   const flag = process.argv.indexOf('--account');
   if (flag !== -1) {
     if (!process.argv[flag + 1]) throw new Error('usage: npm run verify -- --account <account.testnet>');
-    return scoreAccount(process.argv[flag + 1], dep);
+    const account = process.argv[flag + 1];
+    return scoreAccount(account, dep).catch((err) => {
+      throw new Error(`could not read ${account} (${err.message}). Check that the account exists on testnet`);
+    });
   }
 
   console.log('=== Backstop on-chain verification [TESTNET] (read-only, no keys) ===\n');
