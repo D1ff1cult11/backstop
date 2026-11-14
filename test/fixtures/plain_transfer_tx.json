@@ -1,0 +1,25 @@
+{
+  "status": {
+    "SuccessValue": ""
+  },
+  "transaction": {
+    "signer_id": "cato.backstop-hq.testnet",
+    "receiver_id": "mallory.backstop-hq.testnet",
+    "actions": [
+      {
+        "Transfer": {
+          "deposit": "800000000000000000000000"
+        }
+      }
+    ]
+  },
+  "transaction_outcome": {
+    "block_hash": "BmYSzrMuWamAMyFeADRk1LnCaSWi4c3Ep5LxkinNvPmV",
+    "outcome": {
+      "status": {
+        "SuccessReceiptId": "763jhFwDkgaY9qyHAUDaiiauj7T5MCeQoJ7F2eDeV7Qk"
+      }
+    }
+  },
+  "receipts_outcome": []
+}

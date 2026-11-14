@@ -1,0 +1,39 @@
+{
+  "status": {
+    "SuccessValue": ""
+  },
+  "transaction": {
+    "signer_id": "bea.backstop-hq.testnet",
+    "receiver_id": "bea.backstop-hq.testnet",
+    "actions": [
+      {
+        "FunctionCall": {
+          "method_name": "pay",
+          "args": "{\"to\":\"mallory.backstop-hq.testnet\",\"amount\":\"200000000000000000000000\"}",
+          "gas": 30000000000000,
+          "deposit": "0"
+        }
+      }
+    ]
+  },
+  "transaction_outcome": {
+    "block_hash": "BmYSzrMuWamAMyFeADRk1LnCaSWi4c3Ep5LxkinNvPmV",
+    "outcome": {
+      "status": {
+        "SuccessReceiptId": "981jhFwDkgaY9qyHAUDaiiauj7T5MCeQoJ7F2eDeV7Qk"
+      }
+    }
+  },
+  "receipts_outcome": [
+    {
+      "outcome": {
+        "logs": [
+          "EVENT_JSON:{\"standard\":\"backstop-wallet\",\"version\":\"1.0.0\",\"event\":\"paid\",\"data\":[{\"to\":\"mallory.backstop-hq.testnet\",\"amount\":\"200000000000000000000000\"}]}"
+        ],
+        "status": {
+          "SuccessValue": ""
+        }
+      }
+    }
+  ]
+}

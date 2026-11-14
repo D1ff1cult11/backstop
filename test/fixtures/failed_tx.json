@@ -1,0 +1,37 @@
+{
+  "status": {
+    "Failure": {
+      "ActionError": {
+        "index": 0,
+        "kind": {
+          "FunctionCallError": {
+            "ExecutionError": "Smart contract panicked: recipient not on allowlist"
+          }
+        }
+      }
+    }
+  },
+  "transaction": {
+    "signer_id": "atlas.backstop-hq.testnet",
+    "receiver_id": "atlas.backstop-hq.testnet",
+    "actions": [
+      {
+        "FunctionCall": {
+          "method_name": "pay",
+          "args": "{\"to\":\"mallory.backstop-hq.testnet\",\"amount\":\"200000000000000000000000\"}",
+          "gas": 30000000000000,
+          "deposit": "0"
+        }
+      }
+    ]
+  },
+  "transaction_outcome": {
+    "block_hash": "BmYSzrMuWamAMyFeADRk1LnCaSWi4c3Ep5LxkinNvPmV",
+    "outcome": {
+      "status": {
+        "Failure": "ExecutionError"
+      }
+    }
+  },
+  "receipts_outcome": []
+}
