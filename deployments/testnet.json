@@ -33,6 +33,7 @@
   ],
   "walletCodeHash": "3xM3YDs44aRso3b3hVo5KVdRKCatqkUMFwnpxBTXtFYW",
   "poolCodeHash": "EDWJAJnJgCKtRxdg1Sns1onoWvQdfepAUEdGw46F5zFa",
+  "genesisNs": "1794673663296689767",
   "txs": [
     {
       "label": "fund_root",

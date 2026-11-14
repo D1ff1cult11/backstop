@@ -204,3 +204,88 @@ test('a posture lie is rejected', async () => {
   assert.ok(postureCheck);
   assert.equal(postureCheck.ok, false);
 });
+
+// ---- Regression tests: the juror client must fail closed ----
+
+import { fetchSnapshot } from '../agents/posture.mjs';
+
+const beaClaim = {
+  id: 9,
+  claimant: 'bea.backstop-hq.testnet',
+  loss_tx_hash: 'walletTxHash123',
+  amount: '200000000000000000000000',
+  filed_at: '1000000000',
+};
+const beaMember = {
+  account: 'bea.backstop-hq.testnet',
+  declared_score: 90,
+  joined_at: '100',
+  paid_through_epoch: 10,
+  payees: [{ account: 'merchant.backstop-hq.testnet', added_at: '100' }],
+};
+const baseArgs = {
+  claim: beaClaim,
+  member: beaMember,
+  deployments: DEPLOYMENTS,
+  txInfo: walletTx,
+  txBlockTimeNs: '500',
+  poolConfig: { epoch_ns: '1000', posture_tolerance: 10 },
+};
+const check = (res, prefix) => res.checks.find((c) => c.name.startsWith(prefix));
+
+test('posture is recomputed through the rpc client when no snapshot is given', async () => {
+  // Round 2 on testnet failed here: the client lacked viewAccount and viewKeys.
+  const rpc = {
+    fetchSnapshot,
+    viewAccount: async () => ({ code_hash: 'WALLET_HASH_TEST', amount: beaPostureSnapshot.balance }),
+    // The fixture keys are scoped to bea.testnet; point them at the claimant account.
+    viewKeys: async () => ({
+      keys: JSON.parse(JSON.stringify(beaPostureSnapshot.keys).replaceAll('bea.testnet', beaClaim.claimant)),
+    }),
+    viewCall: async () => beaPostureSnapshot.policy,
+  };
+  const res = await evaluate({ ...baseArgs, rpc });
+  assert.equal(check(res, '6_').detail, 'Declared: 90, Verified: 90, Tolerance: 10');
+  assert.equal(res.approve, true);
+});
+
+test('an rpc failure during the posture lookup rejects the claim', async () => {
+  const rpc = {
+    fetchSnapshot,
+    viewAccount: async () => {
+      throw new Error('rpc down');
+    },
+    viewKeys: async () => ({ keys: [] }),
+    viewCall: async () => null,
+  };
+  const res = await evaluate({ ...baseArgs, rpc });
+  assert.equal(check(res, '6_').ok, false);
+  assert.equal(res.approve, false);
+});
+
+test('a snapshot cannot vouch for its own code hash', async () => {
+  const fakeWallet = { ...beaPostureSnapshot, codeHash: 'SOME_OTHER_CONTRACT' };
+  const res = await evaluate({ ...baseArgs, snapshot: fakeWallet });
+  assert.equal(check(res, '6_').ok, false);
+  assert.equal(res.approve, false);
+});
+
+test('a loss after the paid-through epoch is rejected', async () => {
+  const res = await evaluate({
+    ...baseArgs,
+    snapshot: beaPostureSnapshot,
+    txBlockTimeNs: '11500', // epoch 11 with epoch_ns 1000; paid through epoch 10
+  });
+  assert.equal(check(res, '5_').ok, false);
+  assert.equal(res.approve, false);
+});
+
+test('an unknown transaction time fails check 5 closed', async () => {
+  const res = await evaluate({
+    ...baseArgs,
+    snapshot: beaPostureSnapshot,
+    txBlockTimeNs: null,
+    rpc: { blockTimestampNs: async () => { throw new Error('rpc down'); } },
+  });
+  assert.equal(check(res, '5_').ok, false);
+});

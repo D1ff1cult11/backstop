@@ -171,34 +171,24 @@ export async function evaluate({
       : `Recipient ${recipient} was not in registered payees`,
   });
 
-  // Check 5: The transaction happened after the member joined, while the member was active
-  let joinedOk = true;
-  let activeOk = true;
-
+  // Check 5: The transaction happened after the member joined, while the member was active.
+  // Both parts are judged at the transaction's block time and fail closed when that time is unknown.
+  const joinedOk = blockNs !== null && blockNs >= BigInt(member.joined_at || '0');
+  let activeOk = false;
   if (blockNs !== null) {
-    const joinedAtNs = BigInt(member.joined_at || '0');
-    if (blockNs < joinedAtNs) {
-      joinedOk = false;
-    }
-  }
-
-  if (rpc.viewCall) {
-    try {
-      activeOk = await rpc.viewCall(
-        deployments.pool || 'pool.backstop-hq.testnet',
-        'is_active',
-        { account: claim.claimant }
-      );
-    } catch {
-      activeOk = true;
-    }
+    const epochNs = BigInt(poolConfig.epoch_ns || '600000000000');
+    const genesis = BigInt(deployments.genesisNs ?? genesisNs ?? '0');
+    const txEpoch = blockNs >= genesis ? (blockNs - genesis) / epochNs : 0n;
+    activeOk = txEpoch <= BigInt(member.paid_through_epoch ?? 0);
   }
 
   const check5Ok = joinedOk && activeOk;
   checks.push({
     name: '5_member_active_at_loss',
     ok: check5Ok,
-    detail: !joinedOk
+    detail: blockNs === null
+      ? 'Could not read the transaction block time'
+      : !joinedOk
       ? 'Transaction occurred before member joined'
       : !activeOk
       ? 'Transaction occurred after membership expired'
@@ -219,7 +209,7 @@ export async function evaluate({
         keys: snapshot.keys,
         policy: snapshot.policy,
         balance: snapshot.balance,
-        walletCodeHash: snapshot.codeHash || deployments.walletCodeHash,
+        walletCodeHash: deployments.walletCodeHash,
         poolContract: deployments.pool,
       });
       verifiedScore = scored.score;
