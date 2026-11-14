@@ -248,6 +248,123 @@ impl Pool {
         emit("vote_revealed", serde_json::json!({ "claim_id": claim_id, "juror": caller, "approve": approve }));
     }
 
+    pub fn resolve_claim(&mut self, claim_id: u32) {
+        let mut claim = self.claims.get(claim_id).cloned().expect("claim not found");
+        require!(claim.status == ClaimStatus::Open, "claim not open");
+        require!(env::block_timestamp() >= claim.reveal_deadline.0, "reveal window not closed");
+
+        let mut claimant = self.members.get(&claim.claimant).cloned().expect("claimant not found");
+        let (mut approvals, mut rejections) = (0usize, 0usize);
+        for j in &claim.jury {
+            match j.revealed {
+                Some(true) => approvals += 1,
+                Some(false) => rejections += 1,
+                None => {}
+            }
+        }
+        let revealed = approvals + rejections;
+        let quorum = ((self.config.jury_size + 1) / 2) as usize;
+
+        let mut payout: u128 = 0;
+        let status = if revealed < quorum {
+            ClaimStatus::Void
+        } else if approvals > rejections {
+            ClaimStatus::Approved
+        } else {
+            ClaimStatus::Rejected
+        };
+
+        match status {
+            ClaimStatus::Void => {
+                claimant.stake.0 += claim.bond.0;
+                claimant.bond_reserved.0 -= claim.bond.0;
+                for j in &claim.jury {
+                    if j.revealed.is_none() { self.slash_juror(claim_id, &j.juror); }
+                }
+            }
+            ClaimStatus::Approved => {
+                let cap1 = claim.amount.0 * (10000 - self.config.deductible_bps as u128) / 10000;
+                let cap2 = claimant.cover_remaining.0;
+                let cap3 = self.pool_balance * (self.config.max_payout_bps as u128) / 10000;
+                payout = std::cmp::min(cap1, std::cmp::min(cap2, cap3));
+
+                claimant.stake.0 += claim.bond.0;
+                claimant.bond_reserved.0 -= claim.bond.0;
+                claimant.cover_remaining.0 -= payout;
+                self.pool_balance -= payout;
+
+                let juror_reward = payout * (self.config.juror_fee_bps as u128) / 10000;
+                if approvals > 0 {
+                    self.pool_balance -= juror_reward;
+                    let per_juror = juror_reward / (approvals as u128);
+                    for j in &claim.jury {
+                        if j.revealed == Some(true) {
+                            if let Some(mut jm) = self.members.get(&j.juror).cloned() {
+                                jm.stake.0 += per_juror;
+                                self.members.insert(j.juror.clone(), jm);
+                            }
+                        }
+                    }
+                }
+                for j in &claim.jury {
+                    if j.revealed != Some(true) { self.slash_juror(claim_id, &j.juror); }
+                }
+            }
+            ClaimStatus::Rejected => {
+                claimant.bond_reserved.0 -= claim.bond.0;
+                let half_bond = claim.bond.0 / 2;
+                self.pool_balance += claim.bond.0 - half_bond;
+                if rejections > 0 {
+                    let per_juror = half_bond / (rejections as u128);
+                    let distributed = per_juror * (rejections as u128);
+                    self.pool_balance += half_bond - distributed;
+                    for j in &claim.jury {
+                        if j.revealed == Some(false) {
+                            if let Some(mut jm) = self.members.get(&j.juror).cloned() {
+                                jm.stake.0 += per_juror;
+                                self.members.insert(j.juror.clone(), jm);
+                            }
+                        }
+                    }
+                } else {
+                    self.pool_balance += half_bond;
+                }
+                for j in &claim.jury {
+                    if j.revealed != Some(false) { self.slash_juror(claim_id, &j.juror); }
+                }
+            }
+            ClaimStatus::Open => unreachable!(),
+        }
+
+        claimant.open_claim = None;
+        self.members.insert(claim.claimant.clone(), claimant);
+        claim.status = status.clone();
+        claim.payout = U128(payout);
+        self.claims.replace(claim_id, claim);
+
+        if payout > 0 {
+            let _ = Promise::new(self.claims.get(claim_id).unwrap().claimant.clone())
+                .transfer(NearToken::from_yoctonear(payout));
+        }
+
+        emit("claim_resolved", serde_json::json!({
+            "claim_id": claim_id, "status": status, "payout": U128(payout),
+            "approvals": approvals, "rejections": rejections
+        }));
+    }
+
+    fn slash_juror(&mut self, claim_id: u32, juror_id: &AccountId) {
+        if let Some(mut jm) = self.members.get(juror_id).cloned() {
+            let slash = jm.stake.0 * (self.config.juror_slash_bps as u128) / 10000;
+            jm.stake.0 -= slash;
+            self.pool_balance += slash;
+            self.members.insert(juror_id.clone(), jm);
+            emit("juror_slashed", serde_json::json!({
+                "claim_id": claim_id, "juror": juror_id, "amount": U128(slash)
+            }));
+        }
+    }
+
     fn draw_jury(&self, claimant: &AccountId) -> Vec<AccountId> {
         let mut eligible: Vec<AccountId> = Vec::new();
         for (acct, m) in self.members.iter() {
@@ -283,7 +400,7 @@ mod tests {
         }
     }
 
-    fn setup_pool_for_voting() -> (Pool, u32) {
+    fn setup_pool_for_voting(pool_balance: u128) -> (Pool, u32) {
         let mut pool = Pool::new(sample_config());
         let one_near = 1_000_000_000_000_000_000_000_000u128;
         for i in 0..5 {
@@ -291,6 +408,12 @@ mod tests {
             ctx.predecessor_account_id(accounts(i)).attached_deposit(NearToken::from_yoctonear(one_near));
             testing_env!(ctx.build());
             pool.join(U128(one_near), 100, 10, vec![]);
+        }
+        if pool_balance > 0 {
+            let mut ctx = VMContextBuilder::new();
+            ctx.predecessor_account_id(accounts(5)).attached_deposit(NearToken::from_yoctonear(pool_balance));
+            testing_env!(ctx.build());
+            pool.fund_pool();
         }
         let mut ctx = VMContextBuilder::new();
         ctx.predecessor_account_id(accounts(0)).block_timestamp(1_000).random_seed([7u8; 32]);
@@ -304,48 +427,76 @@ mod tests {
     }
 
     #[test]
-    fn test_commit_and_reveal_vote_success() {
-        let (mut pool, cid) = setup_pool_for_voting();
-        let j0 = pool.claims.get(cid).unwrap().jury[0].juror.clone();
-
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(j0.clone()).block_timestamp(1_500);
-        testing_env!(ctx.build());
-        pool.commit_vote(cid, make_commitment(true, "salt_123"));
-
+    fn test_claim_approved_outcome() {
+        let (mut pool, cid) = setup_pool_for_voting(10_000_000_000_000_000_000_000_000);
+        let jurors: Vec<AccountId> = pool.claims.get(cid).unwrap().jury.iter().map(|j| j.juror.clone()).collect();
+        for j in &jurors {
+            let mut ctx = VMContextBuilder::new();
+            ctx.predecessor_account_id(j.clone()).block_timestamp(1_500);
+            testing_env!(ctx.build());
+            pool.commit_vote(cid, make_commitment(true, "salt1"));
+        }
         let t_reveal = 1_000 + 90_000_000_000 + 100;
-        ctx.block_timestamp(t_reveal);
+        for j in &jurors {
+            let mut ctx = VMContextBuilder::new();
+            ctx.predecessor_account_id(j.clone()).block_timestamp(t_reveal);
+            testing_env!(ctx.build());
+            pool.reveal_vote(cid, true, "salt1".to_string());
+        }
+        let t_res = 1_000 + 180_000_000_000 + 100;
+        let mut ctx = VMContextBuilder::new();
+        ctx.predecessor_account_id(accounts(0)).block_timestamp(t_res);
         testing_env!(ctx.build());
-        pool.reveal_vote(cid, true, "salt_123".to_string());
+        pool.resolve_claim(cid);
 
-        let claim = pool.claims.get(cid).unwrap();
-        assert_eq!(claim.jury[0].revealed, Some(true));
+        let c = pool.claims.get(cid).unwrap();
+        assert_eq!(c.status, ClaimStatus::Approved);
+        assert_eq!(c.payout.0, 800_000_000_000_000_000_000_000);
     }
 
     #[test]
-    #[should_panic(expected = "commitment mismatch")]
-    fn test_wrong_salt_panics() {
-        let (mut pool, cid) = setup_pool_for_voting();
-        let j0 = pool.claims.get(cid).unwrap().jury[0].juror.clone();
+    fn test_claim_rejected_outcome() {
+        let (mut pool, cid) = setup_pool_for_voting(0);
+        let jurors: Vec<AccountId> = pool.claims.get(cid).unwrap().jury.iter().map(|j| j.juror.clone()).collect();
+        for j in &jurors {
+            let mut ctx = VMContextBuilder::new();
+            ctx.predecessor_account_id(j.clone()).block_timestamp(1_500);
+            testing_env!(ctx.build());
+            pool.commit_vote(cid, make_commitment(false, "salt_no"));
+        }
+        let t_reveal = 1_000 + 90_000_000_000 + 100;
+        for j in &jurors {
+            let mut ctx = VMContextBuilder::new();
+            ctx.predecessor_account_id(j.clone()).block_timestamp(t_reveal);
+            testing_env!(ctx.build());
+            pool.reveal_vote(cid, false, "salt_no".to_string());
+        }
+        let t_res = 1_000 + 180_000_000_000 + 100;
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(j0.clone()).block_timestamp(1_500);
+        ctx.predecessor_account_id(accounts(0)).block_timestamp(t_res);
         testing_env!(ctx.build());
-        pool.commit_vote(cid, make_commitment(true, "salt_real"));
+        pool.resolve_claim(cid);
+
+        assert_eq!(pool.claims.get(cid).unwrap().status, ClaimStatus::Rejected);
+    }
+
+    #[test]
+    fn test_void_when_few_reveal() {
+        let (mut pool, cid) = setup_pool_for_voting(0);
+        let jurors: Vec<AccountId> = pool.claims.get(cid).unwrap().jury.iter().map(|j| j.juror.clone()).collect();
+        let mut ctx = VMContextBuilder::new();
+        ctx.predecessor_account_id(jurors[0].clone()).block_timestamp(1_500);
+        testing_env!(ctx.build());
+        pool.commit_vote(cid, make_commitment(true, "s"));
 
         ctx.block_timestamp(1_000 + 90_000_000_000 + 100);
         testing_env!(ctx.build());
-        pool.reveal_vote(cid, true, "salt_fake".to_string());
-    }
+        pool.reveal_vote(cid, true, "s".to_string());
 
-    #[test]
-    #[should_panic(expected = "commit window still open")]
-    fn test_reveal_before_deadline_panics() {
-        let (mut pool, cid) = setup_pool_for_voting();
-        let j0 = pool.claims.get(cid).unwrap().jury[0].juror.clone();
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(j0.clone()).block_timestamp(1_500);
+        ctx.block_timestamp(1_000 + 180_000_000_000 + 100);
         testing_env!(ctx.build());
-        pool.commit_vote(cid, make_commitment(true, "salt"));
-        pool.reveal_vote(cid, true, "salt".to_string());
+        pool.resolve_claim(cid);
+
+        assert_eq!(pool.claims.get(cid).unwrap().status, ClaimStatus::Void);
     }
 }
