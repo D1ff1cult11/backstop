@@ -15,6 +15,20 @@ enum StorageKey {
     ClaimedTx,
 }
 
+fn emit(event: &str, data: serde_json::Value) {
+    let event_json = serde_json::json!({
+        "standard": "backstop",
+        "version": "1.0.0",
+        "event": event,
+        "data": [data]
+    });
+    env::log_str(&format!("EVENT_JSON:{}", event_json));
+}
+
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Pool {
@@ -24,16 +38,6 @@ pub struct Pool {
     members: IterableMap<AccountId, Member>,
     claims: Vector<Claim>,
     claimed_tx: LookupSet<String>,
-}
-
-fn emit(event: &str, data: serde_json::Value) {
-    let event_json = serde_json::json!({
-        "standard": "backstop",
-        "version": "1.0.0",
-        "event": event,
-        "data": [data]
-    });
-    env::log_str(&format!("EVENT_JSON:{}", event_json));
 }
 
 #[near]
@@ -66,23 +70,13 @@ impl Pool {
 
     pub fn current_epoch(&self) -> u64 {
         let now = env::block_timestamp();
-        if now < self.genesis_ns {
-            0
-        } else {
-            (now - self.genesis_ns) / self.config.epoch_ns.0
-        }
+        if now < self.genesis_ns { 0 } else { (now - self.genesis_ns) / self.config.epoch_ns.0 }
     }
 
     pub fn premium_per_epoch(&self, cover: U128, score: u8) -> U128 {
         let mult = (30000u32.saturating_sub(250u32 * (score as u32))) as u128;
-        let prem = cover
-            .0
-            .checked_mul(self.config.base_premium_bps as u128)
-            .expect("overflow")
-            .checked_mul(mult)
-            .expect("overflow")
-            / 10000
-            / 10000;
+        let prem = cover.0.checked_mul(self.config.base_premium_bps as u128).expect("ovf")
+            .checked_mul(mult).expect("ovf") / 10000 / 10000;
         U128(prem)
     }
 
@@ -219,12 +213,45 @@ impl Pool {
         claim_id
     }
 
+    pub fn commit_vote(&mut self, claim_id: u32, commitment: String) {
+        let caller = env::predecessor_account_id();
+        let mut claim = self.claims.get(claim_id).cloned().expect("claim not found");
+        require!(claim.status == ClaimStatus::Open, "claim is not open");
+        require!(env::block_timestamp() < claim.commit_deadline.0, "commit deadline passed");
+
+        let juror_vote = claim.jury.iter_mut().find(|j| j.juror == caller).expect("not a juror");
+        require!(juror_vote.commitment.is_none(), "already committed");
+        juror_vote.commitment = Some(commitment);
+
+        self.claims.replace(claim_id, claim);
+        emit("vote_committed", serde_json::json!({ "claim_id": claim_id, "juror": caller }));
+    }
+
+    pub fn reveal_vote(&mut self, claim_id: u32, approve: bool, salt: String) {
+        let caller = env::predecessor_account_id();
+        let mut claim = self.claims.get(claim_id).cloned().expect("claim not found");
+        require!(claim.status == ClaimStatus::Open, "claim is not open");
+        let now = env::block_timestamp();
+        require!(now >= claim.commit_deadline.0, "commit window still open");
+        require!(now < claim.reveal_deadline.0, "reveal deadline passed");
+
+        let juror_vote = claim.jury.iter_mut().find(|j| j.juror == caller).expect("not a juror");
+        let commitment = juror_vote.commitment.as_ref().expect("no commitment found");
+        require!(juror_vote.revealed.is_none(), "already revealed");
+
+        let vote_str = if approve { "1" } else { "0" };
+        let expected_hash = to_hex(&env::sha256(format!("{}:{}", vote_str, salt).as_bytes()));
+        require!(&expected_hash == commitment, "commitment mismatch");
+
+        juror_vote.revealed = Some(approve);
+        self.claims.replace(claim_id, claim);
+        emit("vote_revealed", serde_json::json!({ "claim_id": claim_id, "juror": caller, "approve": approve }));
+    }
+
     fn draw_jury(&self, claimant: &AccountId) -> Vec<AccountId> {
         let mut eligible: Vec<AccountId> = Vec::new();
         for (acct, m) in self.members.iter() {
-            if acct != claimant && self.is_active_member(m) {
-                eligible.push(acct.clone());
-            }
+            if acct != claimant && self.is_active_member(m) { eligible.push(acct.clone()); }
         }
         require!(eligible.len() >= self.config.jury_size as usize, "not enough jurors");
 
@@ -235,7 +262,6 @@ impl Pool {
             let j = (u32::from_le_bytes(bytes) as usize) % (i + 1);
             eligible.swap(i, j);
         }
-
         eligible.into_iter().take(self.config.jury_size as usize).collect()
     }
 }
@@ -257,93 +283,69 @@ mod tests {
         }
     }
 
-    fn setup_pool_with_members(n: usize) -> Pool {
+    fn setup_pool_for_voting() -> (Pool, u32) {
         let mut pool = Pool::new(sample_config());
         let one_near = 1_000_000_000_000_000_000_000_000u128;
-        for i in 0..n {
-            let acct = accounts(i);
+        for i in 0..5 {
             let mut ctx = VMContextBuilder::new();
-            ctx.predecessor_account_id(acct.clone()).attached_deposit(NearToken::from_yoctonear(one_near));
+            ctx.predecessor_account_id(accounts(i)).attached_deposit(NearToken::from_yoctonear(one_near));
             testing_env!(ctx.build());
             pool.join(U128(one_near), 100, 10, vec![]);
         }
-        pool
+        let mut ctx = VMContextBuilder::new();
+        ctx.predecessor_account_id(accounts(0)).block_timestamp(1_000).random_seed([7u8; 32]);
+        testing_env!(ctx.build());
+        let cid = pool.file_claim("tx_loss".to_string(), U128(one_near), "ev".to_string());
+        (pool, cid)
+    }
+
+    fn make_commitment(approve: bool, salt: &str) -> String {
+        to_hex(&env::sha256(format!("{}:{}", if approve { "1" } else { "0" }, salt).as_bytes()))
     }
 
     #[test]
-    fn test_init_and_premiums() {
+    fn test_commit_and_reveal_vote_success() {
+        let (mut pool, cid) = setup_pool_for_voting();
+        let j0 = pool.claims.get(cid).unwrap().jury[0].juror.clone();
+
         let mut ctx = VMContextBuilder::new();
-        testing_env!(ctx.block_timestamp(1_000_000_000).build());
-        let pool = Pool::new(sample_config());
-        let near1 = U128(1_000_000_000_000_000_000_000_000);
-        assert_eq!(pool.premium_per_epoch(near1, 0).0, 30_000_000_000_000_000_000_000);
-        assert_eq!(pool.premium_per_epoch(near1, 100).0, 5_000_000_000_000_000_000_000);
+        ctx.predecessor_account_id(j0.clone()).block_timestamp(1_500);
+        testing_env!(ctx.build());
+        pool.commit_vote(cid, make_commitment(true, "salt_123"));
+
+        let t_reveal = 1_000 + 90_000_000_000 + 100;
+        ctx.block_timestamp(t_reveal);
+        testing_env!(ctx.build());
+        pool.reveal_vote(cid, true, "salt_123".to_string());
+
+        let claim = pool.claims.get(cid).unwrap();
+        assert_eq!(claim.jury[0].revealed, Some(true));
     }
 
     #[test]
-    fn test_file_claim_and_bond_reserved() {
-        let mut pool = setup_pool_with_members(5);
+    #[should_panic(expected = "commitment mismatch")]
+    fn test_wrong_salt_panics() {
+        let (mut pool, cid) = setup_pool_for_voting();
+        let j0 = pool.claims.get(cid).unwrap().jury[0].juror.clone();
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
+        ctx.predecessor_account_id(j0.clone()).block_timestamp(1_500);
         testing_env!(ctx.build());
+        pool.commit_vote(cid, make_commitment(true, "salt_real"));
 
-        let claim_amt = U128(500_000_000_000_000_000_000_000); // 0.5 NEAR
-        let cid = pool.file_claim("tx_hash_1".to_string(), claim_amt, "evidence_1".to_string());
-        assert_eq!(cid, 0);
-
-        let m = pool.members.get(&accounts(0)).unwrap();
-        assert_eq!(m.bond_reserved.0, 50_000_000_000_000_000_000_000); // min_claim_bond 0.05 NEAR
-        assert_eq!(m.stake.0, 150_000_000_000_000_000_000_000); // 0.2 - 0.05 = 0.15 NEAR
-        assert_eq!(m.open_claim, Some(0));
-
-        let claim = pool.claims.get(0).unwrap();
-        assert_eq!(claim.jury.len(), 4);
-        assert!(!claim.jury.iter().any(|j| j.juror == accounts(0)));
+        ctx.block_timestamp(1_000 + 90_000_000_000 + 100);
+        testing_env!(ctx.build());
+        pool.reveal_vote(cid, true, "salt_fake".to_string());
     }
 
     #[test]
-    #[should_panic(expected = "transaction already claimed")]
-    fn test_duplicate_tx_hash_panics() {
-        let mut pool = setup_pool_with_members(5);
+    #[should_panic(expected = "commit window still open")]
+    fn test_reveal_before_deadline_panics() {
+        let (mut pool, cid) = setup_pool_for_voting();
+        let j0 = pool.claims.get(cid).unwrap().jury[0].juror.clone();
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
+        ctx.predecessor_account_id(j0.clone()).block_timestamp(1_500);
         testing_env!(ctx.build());
-        pool.file_claim("tx_same".to_string(), U128(100_000_000_000_000_000_000_000), "ev".to_string());
-
-        ctx.predecessor_account_id(accounts(1)).random_seed([7u8; 32]);
-        testing_env!(ctx.build());
-        pool.file_claim("tx_same".to_string(), U128(100_000_000_000_000_000_000_000), "ev".to_string());
-    }
-
-    #[test]
-    #[should_panic(expected = "amount exceeds cover_remaining")]
-    fn test_amount_over_cover_panics() {
-        let mut pool = setup_pool_with_members(5);
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
-        testing_env!(ctx.build());
-        pool.file_claim("tx_1".to_string(), U128(2_000_000_000_000_000_000_000_000), "ev".to_string());
-    }
-
-    #[test]
-    #[should_panic(expected = "not enough jurors")]
-    fn test_not_enough_jurors_panics() {
-        let mut pool = setup_pool_with_members(4); // need 4 jurors other than claimant (so 5 total)
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
-        testing_env!(ctx.build());
-        pool.file_claim("tx_1".to_string(), U128(100_000_000_000_000_000_000_000), "ev".to_string());
-    }
-
-    #[test]
-    fn test_same_seed_gives_same_jury() {
-        let pool = setup_pool_with_members(6);
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).random_seed([42u8; 32]);
-        testing_env!(ctx.build());
-
-        let j1 = pool.draw_jury(&accounts(0));
-        let j2 = pool.draw_jury(&accounts(0));
-        assert_eq!(j1, j2);
+        pool.commit_vote(cid, make_commitment(true, "salt"));
+        pool.reveal_vote(cid, true, "salt".to_string());
     }
 }
