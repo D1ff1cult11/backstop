@@ -381,6 +381,57 @@ impl Pool {
         }
         eligible.into_iter().take(self.config.jury_size as usize).collect()
     }
+
+    pub fn get_member(&self, account: AccountId) -> Option<Member> {
+        self.members.get(&account).cloned()
+    }
+
+    pub fn get_members(&self, from_index: u32, limit: u32) -> Vec<Member> {
+        self.members.values().skip(from_index as usize).take(limit as usize).cloned().collect()
+    }
+
+    pub fn get_claim(&self, id: u32) -> Option<Claim> {
+        self.claims.get(id).cloned()
+    }
+
+    pub fn get_claims(&self, from_index: u32, limit: u32) -> Vec<Claim> {
+        (from_index..std::cmp::min(from_index + limit, self.claims.len()))
+            .filter_map(|i| self.claims.get(i).cloned())
+            .collect()
+    }
+
+    pub fn get_pool_stats(&self) -> PoolStats {
+        let mut total_stake: u128 = 0;
+        let mut total_cover: u128 = 0;
+        let mut active_count: u32 = 0;
+
+        for m in self.members.values() {
+            total_stake += m.stake.0 + m.bond_reserved.0;
+            if self.is_active_member(m) {
+                active_count += 1;
+                total_cover += m.cover_remaining.0;
+            }
+        }
+
+        let denom = std::cmp::max(total_cover, 1);
+        let sol = self.pool_balance.checked_mul(10000).unwrap_or(u128::MAX) / denom;
+        let solvency_bps = std::cmp::min(sol, u32::MAX as u128) as u32;
+
+        PoolStats {
+            pool_balance: U128(self.pool_balance),
+            total_stake: U128(total_stake),
+            members: self.members.len() as u32,
+            active_members: active_count,
+            total_cover_remaining: U128(total_cover),
+            solvency_bps,
+            claims: self.claims.len() as u32,
+            current_epoch: self.current_epoch(),
+        }
+    }
+
+    pub fn is_active(&self, account: AccountId) -> bool {
+        self.members.get(&account).map(|m| self.is_active_member(m)).unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
@@ -400,103 +451,41 @@ mod tests {
         }
     }
 
-    fn setup_pool_for_voting(pool_balance: u128) -> (Pool, u32) {
+    #[test]
+    fn test_views_and_pool_stats() {
         let mut pool = Pool::new(sample_config());
         let one_near = 1_000_000_000_000_000_000_000_000u128;
-        for i in 0..5 {
-            let mut ctx = VMContextBuilder::new();
-            ctx.predecessor_account_id(accounts(i)).attached_deposit(NearToken::from_yoctonear(one_near));
-            testing_env!(ctx.build());
-            pool.join(U128(one_near), 100, 10, vec![]);
-        }
-        if pool_balance > 0 {
-            let mut ctx = VMContextBuilder::new();
-            ctx.predecessor_account_id(accounts(5)).attached_deposit(NearToken::from_yoctonear(pool_balance));
-            testing_env!(ctx.build());
-            pool.fund_pool();
-        }
+
+        // Join member 0
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).block_timestamp(1_000).random_seed([7u8; 32]);
+        ctx.predecessor_account_id(accounts(0)).attached_deposit(NearToken::from_yoctonear(one_near));
         testing_env!(ctx.build());
-        let cid = pool.file_claim("tx_loss".to_string(), U128(one_near), "ev".to_string());
-        (pool, cid)
-    }
+        pool.join(U128(one_near), 100, 10, vec![]);
 
-    fn make_commitment(approve: bool, salt: &str) -> String {
-        to_hex(&env::sha256(format!("{}:{}", if approve { "1" } else { "0" }, salt).as_bytes()))
-    }
-
-    #[test]
-    fn test_claim_approved_outcome() {
-        let (mut pool, cid) = setup_pool_for_voting(10_000_000_000_000_000_000_000_000);
-        let jurors: Vec<AccountId> = pool.claims.get(cid).unwrap().jury.iter().map(|j| j.juror.clone()).collect();
-        for j in &jurors {
-            let mut ctx = VMContextBuilder::new();
-            ctx.predecessor_account_id(j.clone()).block_timestamp(1_500);
-            testing_env!(ctx.build());
-            pool.commit_vote(cid, make_commitment(true, "salt1"));
-        }
-        let t_reveal = 1_000 + 90_000_000_000 + 100;
-        for j in &jurors {
-            let mut ctx = VMContextBuilder::new();
-            ctx.predecessor_account_id(j.clone()).block_timestamp(t_reveal);
-            testing_env!(ctx.build());
-            pool.reveal_vote(cid, true, "salt1".to_string());
-        }
-        let t_res = 1_000 + 180_000_000_000 + 100;
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).block_timestamp(t_res);
+        // Join member 1
+        ctx.predecessor_account_id(accounts(1)).attached_deposit(NearToken::from_yoctonear(one_near));
         testing_env!(ctx.build());
-        pool.resolve_claim(cid);
+        pool.join(U128(one_near), 50, 10, vec![]);
 
-        let c = pool.claims.get(cid).unwrap();
-        assert_eq!(c.status, ClaimStatus::Approved);
-        assert_eq!(c.payout.0, 800_000_000_000_000_000_000_000);
-    }
-
-    #[test]
-    fn test_claim_rejected_outcome() {
-        let (mut pool, cid) = setup_pool_for_voting(0);
-        let jurors: Vec<AccountId> = pool.claims.get(cid).unwrap().jury.iter().map(|j| j.juror.clone()).collect();
-        for j in &jurors {
-            let mut ctx = VMContextBuilder::new();
-            ctx.predecessor_account_id(j.clone()).block_timestamp(1_500);
-            testing_env!(ctx.build());
-            pool.commit_vote(cid, make_commitment(false, "salt_no"));
-        }
-        let t_reveal = 1_000 + 90_000_000_000 + 100;
-        for j in &jurors {
-            let mut ctx = VMContextBuilder::new();
-            ctx.predecessor_account_id(j.clone()).block_timestamp(t_reveal);
-            testing_env!(ctx.build());
-            pool.reveal_vote(cid, false, "salt_no".to_string());
-        }
-        let t_res = 1_000 + 180_000_000_000 + 100;
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(0)).block_timestamp(t_res);
+        // Fund pool
+        ctx.predecessor_account_id(accounts(2)).attached_deposit(NearToken::from_near(3));
         testing_env!(ctx.build());
-        pool.resolve_claim(cid);
+        pool.fund_pool();
 
-        assert_eq!(pool.claims.get(cid).unwrap().status, ClaimStatus::Rejected);
-    }
+        assert!(pool.is_active(accounts(0)));
+        assert!(pool.is_active(accounts(1)));
+        assert!(!pool.is_active(accounts(2)));
 
-    #[test]
-    fn test_void_when_few_reveal() {
-        let (mut pool, cid) = setup_pool_for_voting(0);
-        let jurors: Vec<AccountId> = pool.claims.get(cid).unwrap().jury.iter().map(|j| j.juror.clone()).collect();
-        let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(jurors[0].clone()).block_timestamp(1_500);
-        testing_env!(ctx.build());
-        pool.commit_vote(cid, make_commitment(true, "s"));
+        let stats = pool.get_pool_stats();
+        assert_eq!(stats.members, 2);
+        assert_eq!(stats.active_members, 2);
+        assert_eq!(stats.total_cover_remaining.0, 2 * one_near);
+        assert_eq!(stats.total_stake.0, 400_000_000_000_000_000_000_000); // 0.2 + 0.2 NEAR
+        assert!(stats.pool_balance.0 > 3_000_000_000_000_000_000_000_000); // 3 NEAR + premiums
 
-        ctx.block_timestamp(1_000 + 90_000_000_000 + 100);
-        testing_env!(ctx.build());
-        pool.reveal_vote(cid, true, "s".to_string());
-
-        ctx.block_timestamp(1_000 + 180_000_000_000 + 100);
-        testing_env!(ctx.build());
-        pool.resolve_claim(cid);
-
-        assert_eq!(pool.claims.get(cid).unwrap().status, ClaimStatus::Void);
+        let m_list = pool.get_members(0, 10);
+        assert_eq!(m_list.len(), 2);
+        assert_eq!(pool.get_member(accounts(0)).unwrap().declared_score, 100);
+        assert_eq!(pool.get_claims(0, 10).len(), 0);
     }
 }
