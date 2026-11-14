@@ -1,0 +1,27 @@
+# --- Private working docs: local only, never commit (do not remove these lines) ---
+GEMINI.md
+AGENTS.md
+docs/BUILD_PLAN.md
+docs/LAUNCH.md
+docs/WALLET_GUIDE.md
+docs/research/
+private/
+
+# --- Secrets ---
+.env
+.env.*
+*.key
+secrets/
+.near-credentials/
+deployments/salts.local.json
+
+# --- Build output (wasm/ is committed on purpose) ---
+target/
+node_modules/
+contracts/*/target/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
