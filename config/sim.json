@@ -1,0 +1,20 @@
+{
+  "epoch_ns": 1,
+  "base_premium_bps": 40,
+  "min_stake_bps": 2000,
+  "max_cover": 100,
+  "deductible_bps": 2000,
+  "max_payout_bps": 5000,
+  "claim_bond_bps": 1000,
+  "min_claim_bond": 0.5,
+  "jury_size": 5,
+  "commit_ns": 1,
+  "reveal_ns": 1,
+  "juror_fee_bps": 500,
+  "juror_slash_bps": 1000,
+  "posture_tolerance": 10,
+  "agents": 20,
+  "days": 30,
+  "seed": 42,
+  "capital": 2000
+}

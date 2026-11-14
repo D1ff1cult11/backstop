@@ -1,0 +1,18 @@
+{
+  "name": "backstop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "demo": "node scripts/demo.mjs",
+    "test": "node --test",
+    "verify": "node scripts/verify.mjs",
+    "web": "node scripts/serve.mjs",
+    "build:contracts": "node scripts/build-contracts.mjs",
+    "testnet:setup": "node scripts/setup-testnet.mjs",
+    "testnet:round": "node scripts/run-round.mjs"
+  }
+}
