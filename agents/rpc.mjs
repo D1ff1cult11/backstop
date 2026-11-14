@@ -82,10 +82,12 @@ export async function txStatus(txHash, senderAccountId) {
 }
 
 export async function blockTimestampNs(blockHashOrHeight) {
-  const params =
-    typeof blockHashOrHeight === 'number'
-      ? { block_id: blockHashOrHeight }
-      : { block_id: blockHashOrHeight };
+  const params = blockHashOrHeight
+    ? (typeof blockHashOrHeight === 'number'
+        ? { block_id: blockHashOrHeight }
+        : { block_id: blockHashOrHeight })
+    : { finality: 'final' };
   const res = await rpcCall('block', params);
-  return res.header.timestamp_nanosec || `${res.header.timestamp}`;
+  const ts = res.header.timestamp_nanosec || `${res.header.timestamp}`;
+  return BigInt(ts);
 }

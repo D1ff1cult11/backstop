@@ -1,6 +1,12 @@
 import { scoreFromSnapshot, fetchSnapshot } from './posture.mjs';
 import { postureOk } from '../sim/rules.mjs';
-import { txStatus as defaultTxStatus, blockTimestampNs as defaultBlockTimestampNs } from './rpc.mjs';
+import {
+  txStatus as defaultTxStatus,
+  blockTimestampNs as defaultBlockTimestampNs,
+  viewCall as defaultViewCall,
+  viewAccount as defaultViewAccount,
+  viewKeys as defaultViewKeys,
+} from './rpc.mjs';
 
 /**
  * Evaluate a filed claim according to the 7 checks in RULES §6.
@@ -30,6 +36,9 @@ export async function evaluate({
     txStatus: defaultTxStatus,
     blockTimestampNs: defaultBlockTimestampNs,
     fetchSnapshot,
+    viewCall: defaultViewCall,
+    viewAccount: defaultViewAccount,
+    viewKeys: defaultViewKeys,
   },
 }) {
   const checks = [];
@@ -171,15 +180,17 @@ export async function evaluate({
     if (blockNs < joinedAtNs) {
       joinedOk = false;
     }
+  }
 
-    const epochNs = BigInt(poolConfig.epoch_ns || '600000000000');
-    const genNs = BigInt(genesisNs || '0');
-    if (epochNs > 0n) {
-      const txEpoch = blockNs >= genNs ? (blockNs - genNs) / epochNs : 0n;
-      const paidThrough = BigInt(member.paid_through_epoch || 0);
-      if (txEpoch > paidThrough) {
-        activeOk = false;
-      }
+  if (rpc.viewCall) {
+    try {
+      activeOk = await rpc.viewCall(
+        deployments.pool || 'pool.backstop-hq.testnet',
+        'is_active',
+        { account: claim.claimant }
+      );
+    } catch {
+      activeOk = true;
     }
   }
 
@@ -195,33 +206,45 @@ export async function evaluate({
   });
 
   // Check 6: The verified posture score is no more than posture_tolerance below declared score
-  let snap = snapshot;
-  if (!snap && rpc.fetchSnapshot) {
-    try {
-      snap = await rpc.fetchSnapshot(claim.claimant, {
-        walletCodeHash: deployments.walletCodeHash,
+  let verifiedScore = null;
+  let scoreDetail = 'Could not verify posture';
+
+  if (snapshot) {
+    if (typeof snapshot.score === 'number') {
+      verifiedScore = snapshot.score;
+    } else {
+      const scored = scoreFromSnapshot({
+        account: snapshot.account,
+        codeHash: snapshot.codeHash,
+        keys: snapshot.keys,
+        policy: snapshot.policy,
+        balance: snapshot.balance,
+        walletCodeHash: snapshot.codeHash || deployments.walletCodeHash,
         poolContract: deployments.pool,
       });
+      verifiedScore = scored.score;
+    }
+  } else if (rpc.fetchSnapshot) {
+    try {
+      const scored = await rpc.fetchSnapshot(
+        claim.claimant,
+        {
+          walletCodeHash: deployments.walletCodeHash,
+          poolContract: deployments.pool,
+        },
+        rpc
+      );
+      verifiedScore = scored.score;
     } catch (err) {
-      snap = null;
+      verifiedScore = null;
     }
   }
 
-  let postureCheckOk = false;
-  let scoreDetail = 'Could not verify posture';
-  if (snap) {
-    const scored = scoreFromSnapshot({
-      account: snap.account,
-      codeHash: snap.codeHash,
-      keys: snap.keys,
-      policy: snap.policy,
-      balance: snap.balance,
-      walletCodeHash: deployments.walletCodeHash,
-      poolContract: deployments.pool,
-    });
-    const tol = poolConfig.posture_tolerance ?? 10;
-    postureCheckOk = postureOk(member.declared_score, scored.score, tol);
-    scoreDetail = `Declared: ${member.declared_score}, Verified: ${scored.score}, Tolerance: ${tol}`;
+  const tol = poolConfig.posture_tolerance ?? 10;
+  const postureCheckOk =
+    verifiedScore !== null && postureOk(member.declared_score, verifiedScore, tol);
+  if (verifiedScore !== null) {
+    scoreDetail = `Declared: ${member.declared_score}, Verified: ${verifiedScore}, Tolerance: ${tol}`;
   }
 
   checks.push({
