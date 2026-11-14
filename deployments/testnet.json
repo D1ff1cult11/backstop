@@ -1,0 +1,228 @@
+{
+  "network": "testnet",
+  "root": "backstop-hq.testnet",
+  "pool": "pool.backstop-hq.testnet",
+  "merchant": "merchant.backstop-hq.testnet",
+  "mallory": "mallory.backstop-hq.testnet",
+  "agents": [
+    {
+      "account": "atlas.backstop-hq.testnet",
+      "declared": 100,
+      "wallet": true
+    },
+    {
+      "account": "bea.backstop-hq.testnet",
+      "declared": 90,
+      "wallet": true
+    },
+    {
+      "account": "eve.backstop-hq.testnet",
+      "declared": 70,
+      "wallet": true
+    },
+    {
+      "account": "cato.backstop-hq.testnet",
+      "declared": 0,
+      "wallet": false
+    },
+    {
+      "account": "dex.backstop-hq.testnet",
+      "declared": 95,
+      "wallet": false
+    }
+  ],
+  "walletCodeHash": "3xM3YDs44aRso3b3hVo5KVdRKCatqkUMFwnpxBTXtFYW",
+  "poolCodeHash": "EDWJAJnJgCKtRxdg1Sns1onoWvQdfepAUEdGw46F5zFa",
+  "txs": [
+    {
+      "label": "fund_root",
+      "hash": "F6hE3Zsy4qnUdKsSXM9ExUAEks7xvizLzP9QZC5yeuTg",
+      "at": "2026-11-14T16:27:21.643Z"
+    },
+    {
+      "label": "create_pool_account",
+      "hash": "8N6EkGKByXgSGitHTPYKD2K7Eiynj1hzNWJ7oqVMppGm",
+      "at": "2026-11-14T16:27:32.599Z"
+    },
+    {
+      "label": "deploy_pool",
+      "hash": "D9ZRvj3ciASmGYKqegH1uv9NdSpjJMPPGN3hmPgC9YdG",
+      "at": "2026-11-14T16:27:40.461Z"
+    },
+    {
+      "label": "init_pool",
+      "hash": "EFoDnSpPH1nfdCzHN4tbJzqggtS2ZFpAgxXaTaQHzaab",
+      "at": "2026-11-14T16:27:46.581Z"
+    },
+    {
+      "label": "fund_pool",
+      "hash": "Dd3wUJBvCuATrjqkkDp2Ezx5hjnRBPV8HF5Zep6Scmde",
+      "at": "2026-11-14T16:27:52.057Z"
+    },
+    {
+      "label": "create_merchant.backstop-hq.testnet",
+      "hash": "4mnuiYHumj2qmCLys6223MmBhSmqb9UkbEFZwJp9E6wr",
+      "at": "2026-11-14T16:28:01.772Z"
+    },
+    {
+      "label": "create_mallory.backstop-hq.testnet",
+      "hash": "7Lh3Q9GBaXD6jH8kPgMhijo9GJ3eDJK6pYuggr5xzJbD",
+      "at": "2026-11-14T16:28:11.053Z"
+    },
+    {
+      "label": "create_atlas",
+      "hash": "ArQbMpKkbssKYAvX5qiy7LkfvABgFCjGLFvLBXkYXzF6",
+      "at": "2026-11-14T16:28:19.978Z"
+    },
+    {
+      "label": "create_bea",
+      "hash": "7i6RGBCkqDJHmF3Y4BhN4KKGaeeKXMrW6a9MFwavVBsD",
+      "at": "2026-11-14T16:28:29.690Z"
+    },
+    {
+      "label": "create_eve",
+      "hash": "3fdMDpqSc58n2TLkogBWEN4pK51QLiitSHK4u8mqfuvs",
+      "at": "2026-11-14T16:28:39.545Z"
+    },
+    {
+      "label": "create_cato",
+      "hash": "mswCe8XJE7d9rhE2jSZmBodgGXEVBrVCzDSBb7FS6xy",
+      "at": "2026-11-14T16:28:48.772Z"
+    },
+    {
+      "label": "create_dex",
+      "hash": "Dy6PLaidwKZermoHG5unHF4JhNdC3DWQLWzGSxYpw1Nf",
+      "at": "2026-11-14T16:28:58.155Z"
+    },
+    {
+      "label": "deploy_wallet_atlas",
+      "hash": "38ndSYRghx8qvvPDufAxPpGtVULZian39KLTvRy9qpHL",
+      "at": "2026-11-14T16:29:03.196Z"
+    },
+    {
+      "label": "init_wallet_atlas",
+      "hash": "9LmT89ErB2yneZ68kapuZPAyEiVv793ECHad13NCQh2B",
+      "at": "2026-11-14T16:29:08.473Z"
+    },
+    {
+      "label": "deploy_wallet_bea",
+      "hash": "6RYf6KRxXHVjoPyn8SkyY9kcqEnDncUyUKkVH9oWrzC3",
+      "at": "2026-11-14T16:29:14.105Z"
+    },
+    {
+      "label": "init_wallet_bea",
+      "hash": "3RFPzRLp6rva8b9xsPt5H1HS9tapnHBeYXuQ4SuBmcJF",
+      "at": "2026-11-14T16:29:20.124Z"
+    },
+    {
+      "label": "deploy_wallet_eve",
+      "hash": "CUHREW2yXcKtKmuSfyqYacK3XTghNACsiskJQ83qacQq",
+      "at": "2026-11-14T16:29:25.979Z"
+    },
+    {
+      "label": "init_wallet_eve",
+      "hash": "38xuo3EL3ibCFAByT5ZUFHsiS8wmiRNYtmvftLZxvx4F",
+      "at": "2026-11-14T16:29:32.187Z"
+    },
+    {
+      "label": "join_atlas",
+      "hash": "FPUxy2Nq6xoTiST2Rg7aKKgTTHoUPXnVhEFJpgKeGyQP",
+      "at": "2026-11-14T16:31:07.227Z"
+    },
+    {
+      "label": "join_bea",
+      "hash": "83JQdXor1XQuzpzAWDK2sGa24p6AgxFKT6rXSzUDsKoM",
+      "at": "2026-11-14T16:31:13.675Z"
+    },
+    {
+      "label": "join_eve",
+      "hash": "HpjJekevZYuVDYZpi3CWqPFRXRz5cTJEVysv84MBbJ87",
+      "at": "2026-11-14T16:31:20.321Z"
+    },
+    {
+      "label": "join_cato",
+      "hash": "2Rc85dpH3DhMJf9qTJQ7HfJ8UyDue6E7DkyDaS6jG9FM",
+      "at": "2026-11-14T16:31:26.836Z"
+    },
+    {
+      "label": "join_dex",
+      "hash": "3WhrxAhcke4tD5CnvrrtCi1YMbroC77iM2Nwp8XndEgR",
+      "at": "2026-11-14T16:31:33.335Z"
+    },
+    {
+      "label": "add_self_key_atlas",
+      "hash": "GXj221oDogEbYkxw8oiexEphFGmSS9suuYRGZvVCU9WL",
+      "at": "2026-11-14T16:31:38.612Z"
+    },
+    {
+      "label": "add_pool_key_atlas",
+      "hash": "Bmx9RXbZzcVp1BQKasRmXx61BrFjw2NWfGqB8iUhkxPV",
+      "at": "2026-11-14T16:31:43.576Z"
+    },
+    {
+      "label": "add_self_key_bea",
+      "hash": "8UL31a76iJBd2abDtp8L1KyZwaiRsJ6XB7na6NturdeH",
+      "at": "2026-11-14T16:31:49.251Z"
+    },
+    {
+      "label": "add_pool_key_bea",
+      "hash": "8xVvbeHSQZCY1k6x7rn5MdusgkQx76PtSQKVqmbH7tJ9",
+      "at": "2026-11-14T16:31:53.905Z"
+    },
+    {
+      "label": "add_self_key_eve",
+      "hash": "3Jsu7LJ54qwW1yUM371FzfAH97qqvuTqwLbbP4AisssL",
+      "at": "2026-11-14T16:32:00.143Z"
+    },
+    {
+      "label": "add_pool_key_eve",
+      "hash": "8EoNk5jTYE92bUrn8ZYDsZStF7WqyBx8JTq2DVabUkG4",
+      "at": "2026-11-14T16:32:05.386Z"
+    },
+    {
+      "label": "topup_atlas",
+      "hash": "JBcm6WrQtWLcZ11k3QHu6Awd94w9gJznwERsRN6N7zxM",
+      "at": "2026-11-14T16:50:26.015Z"
+    },
+    {
+      "label": "pay_premium_atlas",
+      "hash": "9iWEZSHBPvTLCN5CMzBUQ9MhuhfRko7vsSfXqDxe3NMu",
+      "at": "2026-11-14T16:50:31.970Z"
+    },
+    {
+      "label": "topup_bea",
+      "hash": "Bm3ttRGhge57L8ZAu7TpgLrFxPVqFT3HtgSJvLJxQfwX",
+      "at": "2026-11-14T16:50:37.446Z"
+    },
+    {
+      "label": "pay_premium_bea",
+      "hash": "7F1D4NxnYTNbGvc13tZ8D1i2fVZQUzKed8SPNEej6NFA",
+      "at": "2026-11-14T16:50:42.453Z"
+    },
+    {
+      "label": "topup_eve",
+      "hash": "5jWWbei8SuP4uireLSUiLtCbtK5Luv1v7t2wpqpGAcxz",
+      "at": "2026-11-14T16:50:47.645Z"
+    },
+    {
+      "label": "pay_premium_eve",
+      "hash": "7pycVNrCU7b1pqhhvzuJkX39nKo7AA6YPmDa4noHycXC",
+      "at": "2026-11-14T16:50:53.276Z"
+    },
+    {
+      "label": "delete_fak_atlas",
+      "hash": "AUGzeK9GGjDCeqLY1AtzguyyYGTfCwEKKSpjGmFZwPDg",
+      "at": "2026-11-14T16:50:59.682Z"
+    },
+    {
+      "label": "delete_fak_bea",
+      "hash": "GEQewE2npxKv31E4obPS9rw2rq92J3pzgRH89vE2b3UJ",
+      "at": "2026-11-14T16:51:04.093Z"
+    },
+    {
+      "label": "delete_fak_eve",
+      "hash": "6L8xNAP2SzPzBFBBRAFaaFAdFhNcDGVQKZXshJkuLYQ8",
+      "at": "2026-11-14T16:51:08.921Z"
+    }
+  ]
+}

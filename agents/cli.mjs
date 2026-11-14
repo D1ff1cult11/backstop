@@ -1,4 +1,26 @@
 import { spawnSync } from 'node:child_process';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+/**
+ * Resolve the access key file path for an account and target receiver.
+ * @param {string} account 
+ * @param {string} receiverId 
+ * @param {object} keysInfo Output of viewKeys(account)
+ * @returns {string} Path to the key file
+ */
+export function getKeyFileFor(account, receiverId, keysInfo) {
+  const matchingKey = keysInfo.keys.find(
+    (k) =>
+      k.access_key.permission.FunctionCall &&
+      k.access_key.permission.FunctionCall.receiver_id === receiverId
+  );
+  if (!matchingKey) {
+    throw new Error(`No function-call key found for ${account} targeting ${receiverId}`);
+  }
+  const filename = `${matchingKey.public_key.replace(':', '_')}.json`;
+  return join(homedir(), '.near-credentials', 'testnet', account, filename).replace(/\\/g, '/');
+}
 
 /**
  * Run a near CLI command with an arguments array.

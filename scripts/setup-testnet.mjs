@@ -157,10 +157,11 @@ export async function runSetup({ deleteFullAccess = false } = {}) {
 
   console.log('--- Backstop Testnet Setup ---');
 
-  // 1. Funding root if < 15 NEAR
+  // 1. Funding root if < 15 NEAR and funder has balance
   const rootBal = await getAccountBalanceNear(ROOT);
-  console.log(`Root ${ROOT} balance: ~${rootBal.toFixed(2)} NEAR`);
-  if (rootBal < 15) {
+  const funderBal = await getAccountBalanceNear(FUNDER);
+  console.log(`Root ${ROOT} balance: ~${rootBal.toFixed(2)} NEAR; Funder ${FUNDER} balance: ~${funderBal.toFixed(2)} NEAR`);
+  if (rootBal < 15 && funderBal >= 9.5) {
     console.log(`Sending 9.5 NEAR from funder ${FUNDER} to ${ROOT}...`);
     const res = sendNear(FUNDER, ROOT, '9.5');
     if (!res.ok) throw new Error(`Failed to fund root: ${res.out}`);
@@ -262,7 +263,7 @@ export async function runSetup({ deleteFullAccess = false } = {}) {
   }
 
   // 7. Every agent calls join
-  const coverYocto = 1000000000000000000000000; // 1 NEAR in yocto
+  const coverYocto = 1000000000000000000000000n; // 1 NEAR in yocto (BigInt)
   const epochs = 18;
 
   for (const agent of AGENTS) {
@@ -276,11 +277,11 @@ export async function runSetup({ deleteFullAccess = false } = {}) {
 
     if (!alreadyMember) {
       console.log(`Agent ${agent.account} joining pool...`);
-      const s = stakeFor(coverYocto, testnetCfg);
-      const p = premiumPerEpoch(coverYocto, agent.declared, testnetCfg);
-      const needed = s + p * epochs;
-      // 1% headroom
-      const depositYocto = BigInt(Math.ceil(needed * 1.01)).toString();
+      const s = stakeFor(1, testnetCfg);
+      const p = premiumPerEpoch(1, agent.declared, testnetCfg);
+      const neededNear = s + p * epochs;
+      // 1% headroom in yocto
+      const depositYocto = BigInt(Math.ceil(neededNear * 1.01 * 1e12)) * 1000000000000n;
 
       const joinArgs = {
         cover: coverYocto.toString(),
@@ -361,9 +362,70 @@ export async function runSetup({ deleteFullAccess = false } = {}) {
     return { ok: true, awaitingConfirmation: true };
   }
 
-  console.log('\nDeleting full-access keys as requested...');
+  // Step 1: Top up before deleting while full-access keys exist
+  console.log('\n--- Top-up Before Deleting Full-Access Keys ---');
+  for (const agent of walletAgents) {
+    const member = await viewCall(POOL, 'get_member', { account: agent.account });
+    if (member.paid_through_epoch < 47) {
+      console.log(`Topping up ${agent.account} with 0.4 NEAR...`);
+      const sRes = sendNear(ROOT, agent.account, '0.4');
+      if (!sRes.ok) throw new Error(`Failed to send 0.4 NEAR to ${agent.account}: ${sRes.out}`);
+      console.log(`[TESTNET] Sent 0.4 NEAR to ${agent.account}: tx ${sRes.txHash}`);
+      recordTx(dep, `topup_${agent.name}`, sRes.txHash);
+
+      console.log(`Agent ${agent.account} calling pool.pay_premium({ epochs: 30 })...`);
+      const p = premiumPerEpoch(1, agent.declared, testnetCfg);
+      const neededNear = p * 30;
+      const depositYocto = BigInt(Math.ceil(neededNear * 1.01 * 1e12)) * 1000000000000n;
+
+      const pRes = call(POOL, 'pay_premium', { epochs: 30 }, {
+        signer: agent.account,
+        deposit: `${depositYocto} yoctonear`,
+      });
+      if (!pRes.ok) throw new Error(`Failed to pay premium for ${agent.account}: ${pRes.out}`);
+      console.log(`[TESTNET] Agent ${agent.account} paid premium: tx ${pRes.txHash}`);
+      recordTx(dep, `pay_premium_${agent.name}`, pRes.txHash);
+    }
+  }
+
+  // Verify with get_member that paid_through_epoch is 47 for all three
+  console.log('\n--- Verifying paid_through_epoch is 47 ---');
+  for (const agent of walletAgents) {
+    const m = await viewCall(POOL, 'get_member', { account: agent.account });
+    console.log(`Agent ${agent.account}: paid_through_epoch = ${m.paid_through_epoch}`);
+    if (m.paid_through_epoch !== 47) {
+      throw new Error(`Expected paid_through_epoch 47 for ${agent.account}, got ${m.paid_through_epoch}`);
+    }
+  }
+
+  // Step 2 & 3: Guard before each deleteKey, delete full-access keys, and verify
+  console.log('\n--- Deleting Full-Access Keys with Guard ---');
   for (const agent of walletAgents) {
     const keysInfo = await viewKeys(agent.account);
+    const selfKeys = keysInfo.keys.filter(
+      (k) =>
+        k.access_key.permission.FunctionCall &&
+        k.access_key.permission.FunctionCall.receiver_id === agent.account &&
+        Array.isArray(k.access_key.permission.FunctionCall.method_names) &&
+        k.access_key.permission.FunctionCall.method_names.includes('pay')
+    );
+    const poolKeys = keysInfo.keys.filter(
+      (k) =>
+        k.access_key.permission.FunctionCall &&
+        k.access_key.permission.FunctionCall.receiver_id === POOL
+    );
+
+    if (selfKeys.length !== 1) {
+      throw new Error(
+        `Guard failed: ${agent.account} does not have exactly one self FunctionCall key with method pay (found ${selfKeys.length})`
+      );
+    }
+    if (poolKeys.length !== 1) {
+      throw new Error(
+        `Guard failed: ${agent.account} does not have exactly one pool FunctionCall key (found ${poolKeys.length})`
+      );
+    }
+
     const fullAccessKeys = keysInfo.keys.filter(
       (k) => k.access_key.permission === 'FullAccess'
     );
@@ -373,6 +435,22 @@ export async function runSetup({ deleteFullAccess = false } = {}) {
       if (!res.ok) throw new Error(`Failed to delete full-access key: ${res.out}`);
       console.log(`[TESTNET] Deleted FullAccess key: tx ${res.txHash}`);
       recordTx(dep, `delete_fak_${agent.name}`, res.txHash);
+    }
+  }
+
+  console.log('\n--- Final Access Keys Status (Post-Deletion) ---');
+  for (const agent of walletAgents) {
+    const finalKeys = await viewKeys(agent.account);
+    console.log(`Keys for ${agent.account} (count: ${finalKeys.keys.length}):`);
+    for (const k of finalKeys.keys) {
+      console.log(`  - Public Key: ${k.public_key}`);
+      console.log(`    Permission: ${JSON.stringify(k.access_key.permission)}`);
+    }
+    const hasFak = finalKeys.keys.some((k) => k.access_key.permission === 'FullAccess');
+    if (hasFak || finalKeys.keys.length !== 2) {
+      throw new Error(
+        `Verification failed for ${agent.account}: expected exactly 2 FunctionCall keys and no FullAccess key`
+      );
     }
   }
 
