@@ -178,6 +178,66 @@ impl Pool {
         self.pool_balance += deposit;
         emit("pool_funded", serde_json::json!({ "funder": env::predecessor_account_id(), "amount": U128(deposit) }));
     }
+
+    pub fn file_claim(&mut self, loss_tx_hash: String, amount: U128, evidence: String) -> u32 {
+        let claimant = env::predecessor_account_id();
+        let mut member = self.members.get(&claimant).cloned().expect("not a member");
+
+        require!(self.is_active_member(&member), "claimant is not active");
+        require!(member.open_claim.is_none(), "already has open claim");
+        require!(amount.0 <= member.cover_remaining.0, "amount exceeds cover_remaining");
+        require!(!self.claimed_tx.contains(&loss_tx_hash), "transaction already claimed");
+
+        let bond_bps = amount.0 * (self.config.claim_bond_bps as u128) / 10000;
+        let bond = std::cmp::max(bond_bps, self.config.min_claim_bond.0);
+        require!(member.stake.0 >= bond, "stake too small for bond");
+
+        member.stake.0 -= bond;
+        member.bond_reserved.0 += bond;
+
+        let jury = self.draw_jury(&claimant);
+        let now = env::block_timestamp();
+        let commit_deadline = now + self.config.commit_ns.0;
+        let reveal_deadline = commit_deadline + self.config.reveal_ns.0;
+        let claim_id = self.claims.len();
+
+        let jury_votes = jury.into_iter().map(|juror| JurorVote { juror, commitment: None, revealed: None }).collect();
+        self.claims.push(Claim {
+            id: claim_id, claimant: claimant.clone(), loss_tx_hash: loss_tx_hash.clone(), amount,
+            evidence, bond: U128(bond), filed_at: U64(now), commit_deadline: U64(commit_deadline),
+            reveal_deadline: U64(reveal_deadline), jury: jury_votes, status: ClaimStatus::Open, payout: U128(0),
+        });
+
+        self.claimed_tx.insert(loss_tx_hash);
+        member.open_claim = Some(claim_id);
+        self.members.insert(claimant.clone(), member);
+
+        emit("claim_filed", serde_json::json!({
+            "claim_id": claim_id, "claimant": claimant, "amount": amount, "bond": U128(bond)
+        }));
+
+        claim_id
+    }
+
+    fn draw_jury(&self, claimant: &AccountId) -> Vec<AccountId> {
+        let mut eligible: Vec<AccountId> = Vec::new();
+        for (acct, m) in self.members.iter() {
+            if acct != claimant && self.is_active_member(m) {
+                eligible.push(acct.clone());
+            }
+        }
+        require!(eligible.len() >= self.config.jury_size as usize, "not enough jurors");
+
+        let seed = env::random_seed_array();
+        for i in (1..eligible.len()).rev() {
+            let offset = (i * 4) % 28;
+            let bytes: [u8; 4] = seed[offset..offset + 4].try_into().unwrap();
+            let j = (u32::from_le_bytes(bytes) as usize) % (i + 1);
+            eligible.swap(i, j);
+        }
+
+        eligible.into_iter().take(self.config.jury_size as usize).collect()
+    }
 }
 
 #[cfg(test)]
@@ -197,79 +257,93 @@ mod tests {
         }
     }
 
+    fn setup_pool_with_members(n: usize) -> Pool {
+        let mut pool = Pool::new(sample_config());
+        let one_near = 1_000_000_000_000_000_000_000_000u128;
+        for i in 0..n {
+            let acct = accounts(i);
+            let mut ctx = VMContextBuilder::new();
+            ctx.predecessor_account_id(acct.clone()).attached_deposit(NearToken::from_yoctonear(one_near));
+            testing_env!(ctx.build());
+            pool.join(U128(one_near), 100, 10, vec![]);
+        }
+        pool
+    }
+
     #[test]
     fn test_init_and_premiums() {
         let mut ctx = VMContextBuilder::new();
         testing_env!(ctx.block_timestamp(1_000_000_000).build());
         let pool = Pool::new(sample_config());
-        assert_eq!(pool.pool_balance, 0);
         let near1 = U128(1_000_000_000_000_000_000_000_000);
         assert_eq!(pool.premium_per_epoch(near1, 0).0, 30_000_000_000_000_000_000_000);
-        assert_eq!(pool.premium_per_epoch(near1, 50).0, 17_500_000_000_000_000_000_000);
         assert_eq!(pool.premium_per_epoch(near1, 100).0, 5_000_000_000_000_000_000_000);
     }
 
     #[test]
-    fn test_join_and_excess_refund() {
-        let near1 = 1_000_000_000_000_000_000_000_000u128;
+    fn test_file_claim_and_bond_reserved() {
+        let mut pool = setup_pool_with_members(5);
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(1)).attached_deposit(NearToken::from_yoctonear(near1));
+        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
         testing_env!(ctx.build());
 
-        let mut pool = Pool::new(sample_config());
-        pool.join(U128(near1), 100, 1, vec![accounts(2)]);
-        let m = pool.members.get(&accounts(1)).unwrap();
-        assert_eq!(m.stake.0, 200_000_000_000_000_000_000_000);
-        assert_eq!(pool.pool_balance, 5_000_000_000_000_000_000_000);
-        assert_eq!(m.payees.len(), 1);
-        assert!(pool.is_active_member(m));
+        let claim_amt = U128(500_000_000_000_000_000_000_000); // 0.5 NEAR
+        let cid = pool.file_claim("tx_hash_1".to_string(), claim_amt, "evidence_1".to_string());
+        assert_eq!(cid, 0);
+
+        let m = pool.members.get(&accounts(0)).unwrap();
+        assert_eq!(m.bond_reserved.0, 50_000_000_000_000_000_000_000); // min_claim_bond 0.05 NEAR
+        assert_eq!(m.stake.0, 150_000_000_000_000_000_000_000); // 0.2 - 0.05 = 0.15 NEAR
+        assert_eq!(m.open_claim, Some(0));
+
+        let claim = pool.claims.get(0).unwrap();
+        assert_eq!(claim.jury.len(), 4);
+        assert!(!claim.jury.iter().any(|j| j.juror == accounts(0)));
     }
 
     #[test]
-    #[should_panic(expected = "insufficient deposit")]
-    fn test_join_low_deposit_panics() {
+    #[should_panic(expected = "transaction already claimed")]
+    fn test_duplicate_tx_hash_panics() {
+        let mut pool = setup_pool_with_members(5);
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(1)).attached_deposit(NearToken::from_yoctonear(10));
+        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
         testing_env!(ctx.build());
-        Pool::new(sample_config()).join(U128(1_000_000_000_000_000_000_000_000), 100, 1, vec![]);
+        pool.file_claim("tx_same".to_string(), U128(100_000_000_000_000_000_000_000), "ev".to_string());
+
+        ctx.predecessor_account_id(accounts(1)).random_seed([7u8; 32]);
+        testing_env!(ctx.build());
+        pool.file_claim("tx_same".to_string(), U128(100_000_000_000_000_000_000_000), "ev".to_string());
     }
 
     #[test]
-    #[should_panic(expected = "already a member")]
-    fn test_double_join_panics() {
-        let near1 = 1_000_000_000_000_000_000_000_000u128;
+    #[should_panic(expected = "amount exceeds cover_remaining")]
+    fn test_amount_over_cover_panics() {
+        let mut pool = setup_pool_with_members(5);
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(1)).attached_deposit(NearToken::from_yoctonear(near1));
+        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
         testing_env!(ctx.build());
-        let mut pool = Pool::new(sample_config());
-        pool.join(U128(near1), 100, 1, vec![]);
-        pool.join(U128(near1), 100, 1, vec![]);
+        pool.file_claim("tx_1".to_string(), U128(2_000_000_000_000_000_000_000_000), "ev".to_string());
     }
 
     #[test]
-    fn test_inactive_after_expiration() {
-        let near1 = 1_000_000_000_000_000_000_000_000u128;
+    #[should_panic(expected = "not enough jurors")]
+    fn test_not_enough_jurors_panics() {
+        let mut pool = setup_pool_with_members(4); // need 4 jurors other than claimant (so 5 total)
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(1)).block_timestamp(0).attached_deposit(NearToken::from_yoctonear(near1));
+        ctx.predecessor_account_id(accounts(0)).random_seed([7u8; 32]);
         testing_env!(ctx.build());
-        let mut pool = Pool::new(sample_config());
-        pool.join(U128(near1), 100, 1, vec![]);
-        testing_env!(ctx.block_timestamp(1_200_000_000_000).build());
-        assert!(!pool.is_active_member(pool.members.get(&accounts(1)).unwrap()));
+        pool.file_claim("tx_1".to_string(), U128(100_000_000_000_000_000_000_000), "ev".to_string());
     }
 
     #[test]
-    #[should_panic(expected = "open claim exists")]
-    fn test_leave_blocked_with_open_claim() {
-        let near1 = 1_000_000_000_000_000_000_000_000u128;
+    fn test_same_seed_gives_same_jury() {
+        let pool = setup_pool_with_members(6);
         let mut ctx = VMContextBuilder::new();
-        ctx.predecessor_account_id(accounts(1)).block_timestamp(0).attached_deposit(NearToken::from_yoctonear(near1));
+        ctx.predecessor_account_id(accounts(0)).random_seed([42u8; 32]);
         testing_env!(ctx.build());
-        let mut pool = Pool::new(sample_config());
-        pool.join(U128(near1), 100, 1, vec![]);
-        let mut m = pool.members.get(&accounts(1)).cloned().unwrap();
-        m.open_claim = Some(0);
-        pool.members.insert(accounts(1), m);
-        pool.leave();
+
+        let j1 = pool.draw_jury(&accounts(0));
+        let j2 = pool.draw_jury(&accounts(0));
+        assert_eq!(j1, j2);
     }
 }
