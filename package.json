@@ -8,6 +8,7 @@
   },
   "scripts": {
     "demo": "node scripts/demo.mjs",
+    "sweep": "node sim/sweep.mjs",
     "test": "node --test",
     "verify": "node scripts/verify.mjs",
     "web": "node scripts/serve.mjs",

@@ -34,6 +34,515 @@
   "walletCodeHash": "3xM3YDs44aRso3b3hVo5KVdRKCatqkUMFwnpxBTXtFYW",
   "poolCodeHash": "EDWJAJnJgCKtRxdg1Sns1onoWvQdfepAUEdGw46F5zFa",
   "genesisNs": "1794673663296689767",
+  "rounds": [
+    {
+      "round": 1,
+      "claims": [
+        0,
+        1,
+        2
+      ],
+      "outcome": "Void",
+      "note": "The script sent the 12 commit votes one at a time and missed the 90 s commit window. Per RULES 7: bonds refunded, non-revealing jurors slashed."
+    },
+    {
+      "round": 2,
+      "claims": [
+        3,
+        4,
+        5
+      ],
+      "outcome": "Rejected",
+      "note": "A wiring bug in our juror client made the posture lookup throw, so check 6 failed closed and every juror voted reject, including on two genuine losses. Nothing unverified was paid. Fixed in agents/juror.mjs."
+    },
+    {
+      "round": 3,
+      "claims": [
+        6,
+        7,
+        8
+      ],
+      "outcome": "Void",
+      "note": "Commits were still sequential; the last one missed its deadline and the script exited before the reveal phase."
+    },
+    {
+      "round": 4,
+      "claims": [
+        9,
+        10,
+        11
+      ],
+      "outcome": "Void",
+      "note": "All 12 commits landed, but no reveal landed inside the reveal window."
+    },
+    {
+      "round": 5,
+      "claims": [
+        12,
+        13,
+        14
+      ],
+      "outcome": "Resolved",
+      "note": "Correct outcomes: two genuine losses paid, the posture liar rejected, the juror who never revealed slashed."
+    }
+  ],
+  "notes": [
+    "A Void or Rejected claim permanently consumes its loss transaction hash, so every round used fresh loss transfers.",
+    "Before round 3 the wallet owner (backstop-hq.testnet) raised the daily cap on bea.backstop-hq.testnet from 0.5 to 2 NEAR with set_policy so the scripted 0.2 NEAR loss could repeat. Daily cap is not a posture signal; bea still verifies 90."
+  ],
+  "recordedClaims": [
+    {
+      "id": 0,
+      "claimant": "bea.backstop-hq.testnet",
+      "loss_tx_hash": "6rwzGPGEijMGmQ5ptceKaHcBpjEbZAg4ssoSDDtHYNvu",
+      "amount": "200000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "claimant": "cato.backstop-hq.testnet",
+      "loss_tx_hash": "3hK49XQHWpVCGZN14ozT48GAQURG4tQDQMm2odC5n8uy",
+      "amount": "800000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": false,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": false,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "claimant": "dex.backstop-hq.testnet",
+      "loss_tx_hash": "AL3cpwhNGTPUf25hQ9d8TnCW29W65Fth4Ezdg4u6fKFh",
+      "amount": "600000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": false,
+          "revealed": null
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": false,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": false,
+          "revealed": null
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": false,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "claimant": "bea.backstop-hq.testnet",
+      "loss_tx_hash": "6dDmobNJWW5w4xFS9nNCpsqNLWYRM2V8RsKK51xvbFx8",
+      "amount": "200000000000000000000000",
+      "status": "Rejected",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "claimant": "cato.backstop-hq.testnet",
+      "loss_tx_hash": "2f831J7csJkeBEzEPkqDicv3xephCymRJArMKERkbVsz",
+      "amount": "800000000000000000000000",
+      "status": "Rejected",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "claimant": "dex.backstop-hq.testnet",
+      "loss_tx_hash": "FGFhWvWWjkREMfLYEUVt2ZJBjRriYFM7SqdmUHooew5b",
+      "amount": "600000000000000000000000",
+      "status": "Rejected",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "claimant": "bea.backstop-hq.testnet",
+      "loss_tx_hash": "5nZUgkSXK8BmfvQtW1MAFyyzx1zW3buopG6WwVtBUood",
+      "amount": "200000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "claimant": "cato.backstop-hq.testnet",
+      "loss_tx_hash": "DR7zt7PDcUrr3hLStuRt2S9z49FMvQixvGatuPg1Nh6q",
+      "amount": "800000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "claimant": "dex.backstop-hq.testnet",
+      "loss_tx_hash": "FxUaxAqNHBL4k1XftqXp45czVdHGRD8qZawDAGH5uvnk",
+      "amount": "600000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": false,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "claimant": "bea.backstop-hq.testnet",
+      "loss_tx_hash": "FDbHMZvUjYMiQPyW9dJqaB8QZGsj2zKsKKXDGiajU6Sw",
+      "amount": "200000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "claimant": "cato.backstop-hq.testnet",
+      "loss_tx_hash": "BaotBPGfnRPZpqhdevRsRUZJMTJvkyxZ2Hu89qbVetpk",
+      "amount": "800000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "claimant": "dex.backstop-hq.testnet",
+      "loss_tx_hash": "FeE8PksuEbytVkfQ8G79aVTQ4RP3Lf9n9YbhJWJLCQdX",
+      "amount": "600000000000000000000000",
+      "status": "Void",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "claimant": "bea.backstop-hq.testnet",
+      "loss_tx_hash": "BtiPsB4yHcZ19rkhL7h79aQFpmaQUNqb5W7GYn7HQEtw",
+      "amount": "200000000000000000000000",
+      "status": "Approved",
+      "payout": "160000000000000000000000",
+      "jury": [
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": true
+        },
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": true
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": true
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "claimant": "cato.backstop-hq.testnet",
+      "loss_tx_hash": "FoyUBZRVFUBMGL4ShpcFkuCF79opXz5PEoNoLMgPdFXb",
+      "amount": "800000000000000000000000",
+      "status": "Approved",
+      "payout": "640000000000000000000000",
+      "jury": [
+        {
+          "juror": "dex.backstop-hq.testnet",
+          "committed": true,
+          "revealed": true
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": true
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "claimant": "dex.backstop-hq.testnet",
+      "loss_tx_hash": "GMWWkkwkA35nufD9TXaU9Jz4ti8YAYmvvZEQTDrJfJkD",
+      "amount": "600000000000000000000000",
+      "status": "Rejected",
+      "payout": "0",
+      "jury": [
+        {
+          "juror": "bea.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "eve.backstop-hq.testnet",
+          "committed": true,
+          "revealed": null
+        },
+        {
+          "juror": "atlas.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        },
+        {
+          "juror": "cato.backstop-hq.testnet",
+          "committed": true,
+          "revealed": false
+        }
+      ]
+    }
+  ],
+  "recordedAt": "2026-11-14T19:51:54.383Z",
   "txs": [
     {
       "label": "fund_root",
@@ -840,61 +1349,5 @@
       "hash": "EsjwDwwzc1zRb1daC4S6YEVnbgtLVTDhiuwDd9VYcCPK",
       "at": "2026-11-14T19:23:56.363Z"
     }
-  ],
-  "rounds": [
-    {
-      "round": 1,
-      "claims": [
-        0,
-        1,
-        2
-      ],
-      "outcome": "Void",
-      "note": "The script sent the 12 commit votes one at a time and missed the 90 s commit window. Per RULES 7: bonds refunded, non-revealing jurors slashed."
-    },
-    {
-      "round": 2,
-      "claims": [
-        3,
-        4,
-        5
-      ],
-      "outcome": "Rejected",
-      "note": "A wiring bug in our juror client made the posture lookup throw, so check 6 failed closed and every juror voted reject, including on two genuine losses. Nothing unverified was paid. Fixed in agents/juror.mjs."
-    },
-    {
-      "round": 3,
-      "claims": [
-        6,
-        7,
-        8
-      ],
-      "outcome": "Void",
-      "note": "Commits were still sequential; the last one missed its deadline and the script exited before the reveal phase."
-    },
-    {
-      "round": 4,
-      "claims": [
-        9,
-        10,
-        11
-      ],
-      "outcome": "Void",
-      "note": "All 12 commits landed, but no reveal landed inside the reveal window."
-    },
-    {
-      "round": 5,
-      "claims": [
-        12,
-        13,
-        14
-      ],
-      "outcome": "Resolved",
-      "note": "Correct outcomes: two genuine losses paid, the posture liar rejected, the juror who never revealed slashed."
-    }
-  ],
-  "notes": [
-    "A Void or Rejected claim permanently consumes its loss transaction hash, so every round used fresh loss transfers.",
-    "Before round 3 the wallet owner (backstop-hq.testnet) raised the daily cap on bea.backstop-hq.testnet from 0.5 to 2 NEAR with set_policy so the scripted 0.2 NEAR loss could repeat. Daily cap is not a posture signal; bea still verifies 90."
   ]
 }

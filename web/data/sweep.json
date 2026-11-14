@@ -1,0 +1,27 @@
+{
+  "seeds": 200,
+  "days": 30,
+  "agents": 20,
+  "fraud": {
+    "filed": 1198,
+    "approved": 0
+  },
+  "postureLie": {
+    "filed": 690,
+    "approved": 1
+  },
+  "honest": {
+    "filed": 2800,
+    "approved": 2800
+  },
+  "minSolvencyBps": 10028,
+  "minSolvencySeed": 36,
+  "seedsEndingBelow100": 0,
+  "seedsEverBelow100": 0,
+  "finalBalance": {
+    "min": 1792,
+    "median": 1988,
+    "max": 2217
+  },
+  "initialCapital": 2000
+}
