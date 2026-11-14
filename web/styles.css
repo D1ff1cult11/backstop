@@ -78,3 +78,31 @@ tr:last-child td { border-bottom: none; }
 
 .footer { padding: 28px 16px 40px; text-align: center; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--surface-border); }
 .footer a { color: var(--accent); text-decoration: none; }
+
+a { color: var(--accent); }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
+.muted { color: var(--text-muted); font-size: 0.85rem; }
+.error-msg { color: var(--rejected); font-size: 0.88rem; padding: 10px 0; }
+.fallback-msg { color: var(--text-muted); font-size: 0.88rem; padding: 10px 0; }
+.badge.status-approved { background: #dcfce7; color: #166534; }
+.badge.status-rejected { background: #fee2e2; color: #991b1b; }
+.badge.status-void { background: #e5e7eb; color: #374151; }
+.badge.status-open { background: #e0e7ff; color: #3730a3; }
+@media (prefers-color-scheme: dark) {
+  .badge.status-approved { background: #052e16; color: #86efac; }
+  .badge.status-rejected { background: #450a0a; color: #fca5a5; }
+  .badge.status-void { background: #1f2937; color: #d1d5db; }
+}
+.signals { list-style: none; margin: 8px 0 0; font-size: 0.85rem; display: grid; gap: 4px; }
+.signals li.ok { color: var(--approved); }
+.signals li.no { color: var(--rejected); }
+.signals li.muted, .signals li .muted { color: var(--text-muted); font-size: 0.8rem; }
+details summary { cursor: pointer; list-style: none; }
+.rounds-title { margin-top: 28px; }
+.round-note { font-size: 0.88rem; color: var(--text-muted); margin: 0 0 10px; max-width: 900px; }
+.score-form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.score-form input { flex: 1 1 280px; padding: 9px 12px; font-size: 0.95rem; font-family: ui-monospace, Consolas, monospace; background: var(--surface); color: var(--text); border: 1px solid var(--surface-border); border-radius: var(--radius); }
+.score-card { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius); padding: 18px; }
+.score-card p { font-size: 0.9rem; margin-bottom: 6px; }
+.score-big { font-size: 3rem; font-weight: 800; color: var(--accent); line-height: 1; }
+.score-big span { font-size: 1rem; color: var(--text-muted); font-weight: 600; }

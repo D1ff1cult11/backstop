@@ -26,7 +26,12 @@ const server = createServer((req, res) => {
     return;
   }
 
-  let filePath = join(ROOT_DIR, reqPath);
+  let filePath = join(ROOT_DIR, decodeURIComponent(reqPath));
+  if (!filePath.startsWith(ROOT_DIR)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('403 Forbidden');
+    return;
+  }
 
   // If path is a directory, look for index.html
   if (existsSync(filePath) && statSync(filePath).isDirectory()) {

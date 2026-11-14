@@ -1,5 +1,5 @@
 // Backstop web application - Simulation charts and live testnet integration
-import { scoreFromSnapshot, fetchSnapshot } from '/agents/posture.mjs';
+import { fetchSnapshot } from '../agents/posture.mjs';
 
 const STRATEGY_COLORS = {
   careful: '#1f9d55',
@@ -230,113 +230,186 @@ function renderCharts(sim) {
   }
 }
 
-async function loadTestnetData() {
-  const membersTbody = document.querySelector('#table-members tbody');
-  const claimsTbody = document.querySelector('#table-claims tbody');
+const TX_URL = 'https://testnet.nearblocks.io/txns/';
+const ACCT_URL = 'https://testnet.nearblocks.io/address/';
+const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
+const shortName = (a) => a.split('.')[0];
+const multiplier = (score) => (30000 - score * 250) / 10000;
 
-  let dep = null;
+function signalList(signals) {
+  const items = signals.map(
+    (s) => `<li class="${s.ok ? 'ok' : 'no'}">${s.ok ? '✓' : '✗'} <strong>${s.ok ? s.points : 0}/${s.points}</strong> ${esc(s.name)}</li>`
+  );
+  return `<ul class="signals">${items.join('')}</ul>`;
+}
+
+async function loadSweep() {
+  const box = document.getElementById('sweep-stats');
+  if (!box) return;
   try {
-    const depRes = await fetch('/deployments/testnet.json');
-    if (depRes.ok) {
-      dep = await depRes.json();
-    }
-  } catch {}
-
-  const poolContract = dep?.pool || 'pool.backstop-hq.testnet';
-  const walletCodeHash = dep?.walletCodeHash || '3xM3YDs44aRso3b3hVo5KVdRKCatqkUMFwnpxBTXtFYW';
-
-  try {
-    // 1. Pool stats
-    const stats = await browserRpc.viewCall(poolContract, 'get_pool_stats', {});
-    const statMembers = document.getElementById('stat-members');
-    const statBal = document.getElementById('stat-balance');
-    const statClaims = document.getElementById('stat-claims');
-
-    if (statMembers) statMembers.textContent = `${stats.active_members} / ${stats.members}`;
-    if (statBal) statBal.textContent = `${toNear(stats.pool_balance)} NEAR`;
-    if (statClaims) statClaims.textContent = stats.claims;
-
-    // 2. Members table
-    const members = await browserRpc.viewCall(poolContract, 'get_members', { from_index: 0, limit: 20 });
-    if (membersTbody) {
-      membersTbody.innerHTML = '';
-      for (const m of members) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td><strong>${m.account}</strong></td>
-          <td>${m.declared_score}</td>
-          <td id="score-${m.account.replace(/\./g, '_')}">
-            <button class="verify-btn" data-account="${m.account}">Audit Posture</button>
-          </td>
-          <td>${((30000 - m.declared_score * 250) / 10000).toFixed(2)}x</td>
-          <td>${toNear(m.stake)} NEAR</td>
-          <td>${toNear(m.cover_remaining)} NEAR</td>
-        `;
-        membersTbody.appendChild(row);
-
-        // Pre-fetch live posture in background
-        fetchSnapshot(m.account, { walletCodeHash, poolContract }, browserRpc)
-          .then((snap) => {
-            const el = document.getElementById(`score-${m.account.replace(/\./g, '_')}`);
-            if (!el) return;
-            const diff = Math.abs(m.declared_score - snap.score);
-            const badgeClass = diff <= 10 ? 'status-approved' : 'status-rejected';
-            const label = diff <= 10 ? `${snap.score} (Valid)` : `${snap.score} (Liar!)`;
-            el.innerHTML = `
-              <span class="badge ${badgeClass}" title="${snap.signals.map((s) => `${s.name}: ${s.ok ? '✓' : '✗'} (${s.detail})`).join('\n')}">
-                ${label}
-              </span>
-            `;
-          })
-          .catch(() => {});
-      }
-    }
-
-    // 3. Claims table
-    const claims = await browserRpc.viewCall(poolContract, 'get_claims', { from_index: 0, limit: 30 });
-    if (claimsTbody) {
-      claimsTbody.innerHTML = '';
-      const recentClaims = claims.slice(-10).reverse();
-      for (const c of recentClaims) {
-        const row = document.createElement('tr');
-        let statusBadge = `<span class="badge status-${(c.status || '').toLowerCase()}">${c.status}</span>`;
-        const juryStr = c.jury
-          .map((j) => {
-            const name = j.juror.split('.')[0];
-            const rev = j.revealed === null ? '–' : (j.revealed ? '✓' : '✗');
-            return `${name}:${rev}`;
-          })
-          .join(' ');
-
-        const txLink = dep?.txs?.find((t) => t.label === `loss_tx_${c.claimant.split('.')[0]}_round`)?.hash;
-        const txCell = txLink
-          ? `<a href="https://testnet.nearblocks.io/txns/${txLink}" target="_blank" rel="noopener">Link</a>`
-          : '–';
-
-        row.innerHTML = `
-          <td>#${c.id}</td>
-          <td>${c.claimant.split('.')[0]}</td>
-          <td>${toNear(c.amount)} NEAR</td>
-          <td><code>${juryStr}</code></td>
-          <td>${statusBadge}</td>
-          <td>${toNear(c.payout)} NEAR</td>
-          <td>${txCell}</td>
-        `;
-        claimsTbody.appendChild(row);
-      }
-    }
-  } catch (err) {
-    console.warn('Could not load testnet data:', err.message);
-    if (membersTbody) {
-      membersTbody.innerHTML = `<tr><td colspan="6" class="error-msg">RPC read error: ${err.message}. Ensure internet connection.</td></tr>`;
-    }
+    const sw = await (await fetch('data/sweep.json')).json();
+    const tile = (label, value) =>
+      `<div class="stat-card"><span class="stat-label">${label} <span class="badge sim">[SIM]</span></span><span class="stat-value">${value}</span></div>`;
+    box.innerHTML =
+      tile(`Fraud claims approved, ${sw.seeds} seeds`, `${sw.fraud.approved} / ${sw.fraud.filed}`) +
+      tile('Posture-lie claims approved', `${sw.postureLie.approved} / ${sw.postureLie.filed}`) +
+      tile('Honest claims paid', `${sw.honest.approved} / ${sw.honest.filed}`) +
+      tile('Lowest solvency, any day', `${(sw.minSolvencyBps / 100).toFixed(1)}%`);
+  } catch {
+    box.innerHTML = '<p class="fallback-msg">Run <code>npm run sweep</code> to generate the stress-test data.</p>';
   }
 }
 
-// Initialise dashboard
+async function loadBytecode(dep) {
+  const el = document.getElementById('bytecode');
+  if (!el) return;
+  const rows = [];
+  const check = async (account, expected, name) => {
+    const acct = await browserRpc.viewAccount(account);
+    const ok = acct.code_hash === expected;
+    rows.push(
+      `<li class="${ok ? 'ok' : 'no'}">${ok ? '✓' : '✗'} <a href="${ACCT_URL}${account}" target="_blank" rel="noopener">${account}</a> runs this repo's <code>wasm/${name}.wasm</code> <span class="muted">(${esc(acct.code_hash)})</span></li>`
+    );
+  };
+  try {
+    await check(dep.pool, dep.poolCodeHash, 'pool');
+    for (const a of dep.agents.filter((x) => x.wallet)) await check(a.account, dep.walletCodeHash, 'wallet');
+    const keys = (await browserRpc.viewKeys(dep.pool)).keys || [];
+    rows.push(
+      keys.length === 0
+        ? `<li class="ok">✓ ${dep.pool} has <strong>0 access keys</strong>: nobody can upgrade it or move its funds.</li>`
+        : `<li class="muted">The pool account still has ${keys.length} access key(s): the deployer can upgrade it.</li>`
+    );
+    el.innerHTML = `<ul class="signals">${rows.join('')}</ul>`;
+  } catch (err) {
+    el.innerHTML = `<p class="error-msg">Could not read code hashes: ${esc(err.message)}</p>`;
+  }
+}
+
+function renderRounds(dep, claims) {
+  const box = document.getElementById('rounds');
+  if (!box) return;
+  const byId = new Map(claims.map((c) => [c.id, c]));
+  const vote = (j) => (j.revealed === true ? 'approve' : j.revealed === false ? 'reject' : j.commitment ? 'no reveal' : 'no commit');
+  const head = '<thead><tr><th>Claim</th><th>Claimant</th><th>Loss (NEAR)</th><th>Status</th><th>Payout (NEAR)</th><th>Jury</th><th>Evidence</th></tr></thead>';
+  const sections = [...dep.rounds].reverse().map((r) => {
+    const rows = r.claims
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .map(
+        (c) => `<tr><td>#${c.id}</td><td>${shortName(c.claimant)}</td><td>${toNear(c.amount)}</td>
+          <td><span class="badge status-${c.status.toLowerCase()}">${c.status}</span></td><td>${toNear(c.payout)}</td>
+          <td>${c.jury.map((j) => `${shortName(j.juror)}: ${vote(j)}`).join(' · ')}</td>
+          <td><a href="${TX_URL}${esc(c.loss_tx_hash)}" target="_blank" rel="noopener">loss tx</a></td></tr>`
+      );
+    const badge = r.outcome === 'Resolved' ? 'approved' : r.outcome.toLowerCase();
+    return `<h3>Round ${r.round} <span class="badge status-${badge}">${r.outcome}</span></h3>
+      <p class="round-note">${esc(r.note)}</p>
+      <div class="table-wrap"><table>${head}<tbody>${rows.join('')}</tbody></table></div>`;
+  });
+  box.innerHTML = sections.join('') + dep.notes.map((n) => `<p class="round-note">Note: ${esc(n)}</p>`).join('');
+}
+
+function renderMembers(dep, members) {
+  const tbody = document.querySelector('#table-members tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  for (const m of members) {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td><a href="${ACCT_URL}${m.account}" target="_blank" rel="noopener">${m.account}</a></td>
+      <td>${m.declared_score}</td><td class="verified">checking…</td>
+      <td>${multiplier(m.declared_score).toFixed(2)}x</td><td>${toNear(m.stake)}</td><td>${toNear(m.cover_remaining)}</td>`;
+    tbody.appendChild(row);
+    const cell = row.querySelector('.verified');
+    fetchSnapshot(m.account, { walletCodeHash: dep.walletCodeHash, poolContract: dep.pool }, browserRpc)
+      .then((snap) => {
+        const ok = m.declared_score <= snap.score + 10;
+        const badge = `<span class="badge ${ok ? 'status-approved' : 'status-rejected'}">${snap.score} ${ok ? 'matches' : 'does not match'}</span>`;
+        cell.innerHTML = `<details><summary>${badge}</summary>${signalList(snap.signals)}</details>`;
+      })
+      .catch((err) => {
+        cell.textContent = `error: ${err.message}`;
+      });
+  }
+}
+
+async function scoreAnyAccount(dep) {
+  const input = document.getElementById('score-input');
+  const out = document.getElementById('score-result');
+  const account = input.value.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{2,64}$/.test(account)) {
+    out.innerHTML = '<p class="error-msg">Enter a NEAR testnet account ID, for example atlas.backstop-hq.testnet</p>';
+    return;
+  }
+  out.innerHTML = '<p class="muted">Reading keys and code from testnet…</p>';
+  try {
+    const snap = await fetchSnapshot(account, { walletCodeHash: dep.walletCodeHash, poolContract: dep.pool }, browserRpc);
+    const base = 0.01; // base_premium_bps 100 on 1 NEAR of cover
+    const quote = base * multiplier(snap.score);
+    out.innerHTML = `<div class="score-card">
+      <div class="score-big">${snap.score}<span>/100</span></div>
+      <div><p><strong>${esc(account)}</strong> <span class="badge testnet">[TESTNET]</span></p>
+      <p>Premium for 1 NEAR of cover: <strong>${quote.toFixed(4)} NEAR per epoch</strong> (${multiplier(snap.score).toFixed(2)}x).
+      A plain account with a full-access key pays ${(base * 3).toFixed(4)}.</p>
+      ${signalList(snap.signals)}</div></div>`;
+  } catch (err) {
+    out.innerHTML = `<p class="error-msg">Could not read ${esc(account)}: ${esc(err.message)}</p>`;
+  }
+}
+
+async function loadTestnetData() {
+  const membersTbody = document.querySelector('#table-members tbody');
+  let dep;
+  try {
+    dep = await (await fetch('../deployments/testnet.json')).json();
+  } catch {
+    if (membersTbody) membersTbody.innerHTML = '<tr><td colspan="6" class="error-msg">deployments/testnet.json not found.</td></tr>';
+    return;
+  }
+
+  document.getElementById('score-btn')?.addEventListener('click', () => scoreAnyAccount(dep));
+  document.getElementById('score-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') scoreAnyAccount(dep);
+  });
+
+  scoreAnyAccount(dep); // show the pre-filled example on load
+
+  const refresh = async () => {
+    try {
+      const stats = await browserRpc.viewCall(dep.pool, 'get_pool_stats', {});
+      document.getElementById('stat-members').textContent = `${stats.active_members} / ${stats.members}`;
+      document.getElementById('stat-balance').textContent = `${toNear(stats.pool_balance)} NEAR`;
+      document.getElementById('stat-claims').textContent = stats.claims;
+      const [members, claims] = await Promise.all([
+        browserRpc.viewCall(dep.pool, 'get_members', { from_index: 0, limit: 50 }),
+        browserRpc.viewCall(dep.pool, 'get_claims', { from_index: 0, limit: 100 }),
+      ]);
+      renderMembers(dep, members);
+      renderRounds(dep, claims);
+      loadBytecode(dep);
+    } catch (err) {
+      // Offline or RPC down: fall back to the recorded snapshot, clearly labelled.
+      if (membersTbody) {
+        membersTbody.innerHTML = `<tr><td colspan="6" class="error-msg">Testnet RPC unreachable (${esc(err.message)}). The rounds below come from the recorded snapshot.</td></tr>`;
+      }
+      const recorded = dep.recordedClaims.map((c) => ({
+        ...c,
+        jury: c.jury.map((j) => ({ ...j, commitment: j.committed ? 'recorded' : null })),
+      }));
+      renderRounds(dep, recorded);
+      const label = document.getElementById('rounds-label');
+      if (label) label.textContent = `[TESTNET-RECORDED ${dep.recordedAt}]`;
+    }
+  };
+  document.getElementById('btn-recompute')?.addEventListener('click', refresh);
+  refresh();
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', () => {
     loadSimulationData();
+    loadSweep();
     loadTestnetData();
   });
 }
