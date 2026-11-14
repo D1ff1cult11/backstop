@@ -2,10 +2,10 @@
 import { fetchSnapshot } from '../agents/posture.mjs';
 
 const STRATEGY_COLORS = {
-  careful: '#1f9d55',
-  standard: '#2f6df6',
+  careful: '#22c55e',
+  standard: '#3b82f6',
   reckless: '#f59e0b',
-  liar: '#d64545',
+  liar: '#ef4444',
   fraudster: '#8b5cf6',
   lazy: '#64748b',
 };
@@ -99,6 +99,12 @@ function renderCharts(sim) {
     console.error('Chart.js not loaded');
     return;
   }
+  const css = getComputedStyle(document.documentElement);
+  Chart.defaults.color = css.getPropertyValue('--muted-foreground').trim() || '#a1a1aa';
+  Chart.defaults.borderColor = css.getPropertyValue('--border').trim() || '#27272a';
+  Chart.defaults.font.family = "'Geist', 'Inter', system-ui, sans-serif";
+  Chart.defaults.plugins.legend.labels.boxWidth = 10;
+  Chart.defaults.plugins.legend.labels.boxHeight = 10;
 
   // 1. Solvency over 30 days
   const ctxSolv = document.getElementById('chart-solvency')?.getContext('2d');
@@ -111,8 +117,8 @@ function renderCharts(sim) {
           {
             label: 'Solvency %',
             data: sim.days.map((d) => (d.solvency_bps / 100).toFixed(1)),
-            borderColor: '#2f6df6',
-            backgroundColor: 'rgba(47, 109, 246, 0.1)',
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.12)',
             fill: true,
             tension: 0.2,
           },
@@ -144,7 +150,7 @@ function renderCharts(sim) {
     const datasets = Object.keys(stratGroups).map((type) => ({
       label: type,
       data: stratGroups[type],
-      backgroundColor: STRATEGY_COLORS[type] || '#2f6df6',
+      backgroundColor: STRATEGY_COLORS[type] || '#3b82f6',
       pointRadius: 6,
     }));
 
@@ -180,8 +186,8 @@ function renderCharts(sim) {
       data: {
         labels: stratNames,
         datasets: [
-          { label: 'Approved', data: approvedData, backgroundColor: '#1f9d55' },
-          { label: 'Rejected', data: rejectedData, backgroundColor: '#d64545' },
+          { label: 'Approved', data: approvedData, backgroundColor: '#22c55e' },
+          { label: 'Rejected', data: rejectedData, backgroundColor: '#ef4444' },
         ],
       },
       options: {
@@ -215,8 +221,8 @@ function renderCharts(sim) {
       data: {
         labels: stratNames,
         datasets: [
-          { label: 'Insured Net', data: insuredNet, backgroundColor: '#2f6df6' },
-          { label: 'Uninsured Net', data: uninsuredNet, backgroundColor: '#8a8f98' },
+          { label: 'Insured Net', data: insuredNet, backgroundColor: '#3b82f6' },
+          { label: 'Uninsured Net', data: uninsuredNet, backgroundColor: '#52525b' },
         ],
       },
       options: {

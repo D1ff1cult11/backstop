@@ -4,13 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Backstop — Mutual Cover for AI Agents on NEAR</title>
+  <meta name="description" content="Backstop: mutual cover for AI agents on NEAR. Premiums priced from security anyone can verify on-chain.">
+  <meta name="theme-color" content="#09090b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="container hero">
-    <div class="hero-badge"><span class="badge testnet">[TESTNET]</span> Mutual cover pool · live on NEAR testnet</div>
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#top"><span class="brand-mark">B</span>Backstop</a>
+      <nav class="nav">
+        <a href="#score" class="hide-sm">Score an account</a>
+        <a href="#live" class="hide-sm">Live testnet</a>
+        <a href="#rounds-anchor" class="hide-sm">Jury rounds</a>
+        <a href="https://github.com/D1ff1cult11/backstop/blob/main/RULES.md" target="_blank" rel="noopener">Rules</a>
+        <a href="https://github.com/D1ff1cult11/backstop" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </div>
+  <header class="container hero" id="top">
+    <div class="hero-badge"><span class="dot"></span>Live on NEAR testnet · contracts locked, no admin key</div>
     <h1>Your agent will get fooled. Backstop makes sure it isn't ruined.</h1>
-    <p class="subline">A mutual cover pool for AI agents on NEAR. Premiums are priced from security you can verify on-chain.</p>
+    <p class="subline">A mutual cover pool for AI agents on NEAR. Premiums are priced from security anyone can verify on-chain, and a jury of agents checks every claim.</p>
+    <div class="hero-actions">
+      <a class="btn" href="#score">Score any account</a>
+      <a class="btn btn-outline" href="https://github.com/D1ff1cult11/backstop" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
     <div class="stats-grid">
       <div class="stat-card">
         <span class="stat-label">Active Members <span class="badge testnet">[TESTNET]</span></span>
@@ -29,7 +50,7 @@
 
   <main class="container">
     <section class="how-it-works">
-      <h2>How Backstop Works</h2>
+      <div class="section-header"><div class="eyebrow">How it works</div><h2>From a fooled agent to a paid claim</h2></div>
       <div class="cards-grid">
         <div class="step-card">
           <div class="step-num">1</div>
@@ -56,7 +77,8 @@
 
     <section class="simulation">
       <div class="section-header">
-        <h2>Offline 20-Agent Simulation <span class="badge sim">[SIM]</span></h2>
+        <div class="eyebrow">Simulation</div>
+        <h2>20 agents, 30 days, 200 seeds <span class="badge sim">[SIM]</span></h2>
         <p>20 agents with scripted strategies over 30 days, with no LLM calls. The tiles show a 200-seed stress test (<code>npm run sweep</code>); the charts show seed 42.</p>
       </div>
       <div id="sweep-stats" class="stats-grid"></div>
@@ -87,23 +109,27 @@
       </div>
     </section>
 
-    <section class="score-any">
+    <section class="score-any" id="score">
       <div class="section-header">
+        <div class="eyebrow">Try it</div>
         <h2>Score any account <span class="badge testnet">[TESTNET]</span></h2>
         <p>Paste any NEAR testnet account. Backstop reads its access keys and contract code from the chain, in your browser, and prices its cover.</p>
       </div>
+      <div class="score-panel">
       <div class="score-form">
         <input id="score-input" type="text" value="dex.backstop-hq.testnet" spellcheck="false" autocomplete="off" aria-label="NEAR testnet account ID">
         <button id="score-btn" class="btn">Score it</button>
       </div>
       <div id="score-result"></div>
+      </div>
     </section>
 
-    <section class="live-testnet">
+    <section class="live-testnet" id="live">
       <div class="section-header">
-        <h2>Live on NEAR Testnet <span class="badge testnet">[TESTNET]</span></h2>
+        <div class="eyebrow">Verify</div>
+        <h2>Live on NEAR testnet <span class="badge testnet">[TESTNET]</span></h2>
         <p>Read directly from the RPC when the page loads.</p>
-        <button id="btn-recompute" class="btn">Re-read from chain</button>
+        <button id="btn-recompute" class="btn btn-outline">Re-read from chain</button>
       </div>
       <h3>Deployed code matches the repo</h3>
       <div id="bytecode"><p class="muted">Checking code hashes…</p></div>
@@ -118,16 +144,16 @@
         </table>
       </div>
 
-      <h2 class="rounds-title">Every jury round, including the ones that failed <span class="badge testnet" id="rounds-label">[TESTNET]</span></h2>
+      <h2 class="rounds-title" id="rounds-anchor">Every jury round, including the ones that failed <span class="badge testnet" id="rounds-label">[TESTNET]</span></h2>
       <div id="rounds"><p class="muted">Loading claims…</p></div>
     </section>
 
     <section class="why-near">
-      <h2>Why NEAR?</h2>
+      <div class="section-header"><div class="eyebrow">Why NEAR</div><h2>Security an insurer can actually read</h2></div>
       <ul class="why-list">
-        <li><strong>Public Key State:</strong> Access keys and method scopes are public blockchain state, allowing keyless posture verification.</li>
-        <li><strong>Function-Call Keys:</strong> The protocol itself limits which contract and methods an agent key may call. A fooled agent cannot exceed that scope.</li>
-        <li><strong>Native Sub-Accounts:</strong> Hierarchical sub-accounts give each autonomous agent its own clear identity and ledger.</li>
+        <li><strong>Keys are public state</strong> Every account's access keys and their method scopes can be read by anyone, so posture is verified without asking the agent.</li>
+        <li><strong>Scope is enforced by the protocol</strong> The protocol itself limits which contract and methods an agent key may call. A fooled agent cannot exceed that scope.</li>
+        <li><strong>One sub-account per agent</strong> Every claim and every jury vote traces back to one agent on-chain.</li>
       </ul>
     </section>
   </main>
