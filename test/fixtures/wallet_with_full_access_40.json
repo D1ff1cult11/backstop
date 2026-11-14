@@ -1,0 +1,34 @@
+{
+  "account": "partial.testnet",
+  "codeHash": "WALLET_HASH_TEST",
+  "balance": "10000000000000000000000000",
+  "keys": [
+    {
+      "public_key": "ed25519:fullkey",
+      "access_key": {
+        "nonce": 0,
+        "permission": "FullAccess"
+      }
+    },
+    {
+      "public_key": "ed25519:selfkey",
+      "access_key": {
+        "nonce": 0,
+        "permission": {
+          "FunctionCall": {
+            "allowance": "500000000000000000000000",
+            "receiver_id": "partial.testnet",
+            "method_names": ["pay"]
+          }
+        }
+      }
+    }
+  ],
+  "policy": {
+    "owner": "hq.testnet",
+    "per_tx_cap": "5000000000000000000000000",
+    "daily_cap": "10000000000000000000000000",
+    "allowlist_enabled": false,
+    "allowlist": []
+  }
+}

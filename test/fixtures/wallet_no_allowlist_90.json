@@ -1,0 +1,40 @@
+{
+  "account": "bea.testnet",
+  "codeHash": "WALLET_HASH_TEST",
+  "balance": "10000000000000000000000000",
+  "keys": [
+    {
+      "public_key": "ed25519:selfkey",
+      "access_key": {
+        "nonce": 0,
+        "permission": {
+          "FunctionCall": {
+            "allowance": "500000000000000000000000",
+            "receiver_id": "bea.testnet",
+            "method_names": ["pay"]
+          }
+        }
+      }
+    },
+    {
+      "public_key": "ed25519:poolkey",
+      "access_key": {
+        "nonce": 0,
+        "permission": {
+          "FunctionCall": {
+            "allowance": "500000000000000000000000",
+            "receiver_id": "pool.testnet",
+            "method_names": ["file_claim", "commit_vote", "reveal_vote", "register_payee", "resolve_claim", "leave"]
+          }
+        }
+      }
+    }
+  ],
+  "policy": {
+    "owner": "hq.testnet",
+    "per_tx_cap": "2000000000000000000000000",
+    "daily_cap": "5000000000000000000000000",
+    "allowlist_enabled": false,
+    "allowlist": []
+  }
+}
