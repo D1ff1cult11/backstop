@@ -32,6 +32,7 @@ Expect:
   MATCH    pool.backstop-hq.testnet  code_hash EDWJAJnJgCKtRxdg1Sns1onoWvQdfepAUEdGw46F5zFa  == sha256(wasm/pool.wasm)
   MATCH    atlas.backstop-hq.testnet  code_hash 3xM3YDs44aRso3b3hVo5KVdRKCatqkUMFwnpxBTXtFYW  == sha256(wasm/wallet.wasm)
   ...
+  LOCKED   pool.backstop-hq.testnet has 0 access keys: nobody can upgrade it or move its funds.
 --- Member posture: declared vs recomputed from chain state [TESTNET] ---
 | atlas.backstop-hq.testnet | 100 | 100 | 0.50x | ... | yes |
 | bea.backstop-hq.testnet   |  90 |  90 | 0.75x | ... | yes |
@@ -76,5 +77,4 @@ We would rather you hear these from us:
 
 - Four of the five testnet rounds failed because of our client scripts, not the contract. They are all on-chain and all listed in the README.
 - The agents are rule-based and the prompt injection is scripted.
-- The pool account still has the deployer's full-access key.
 - Collusion fraud is not solved. The full list is in the README under Limitations and in RULES.md §10.

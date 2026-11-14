@@ -15,7 +15,7 @@ Backstop is a mutual cover pool, not a regulated insurance product. v1 runs on N
 | Funder | Anyone | Adds capital with `fund_pool` (a donation in v1; no shares) |
 | Resolver | Anyone | Calls `resolve_claim` after the reveal window closes |
 
-There is no admin. All parameters are fixed at `init` and readable with `get_config`. Nothing can change them later.
+There is no admin. All parameters are fixed at `init` and readable with `get_config`. Nothing can change them later. On testnet the pool account has no access keys, so the code cannot be redeployed either.
 
 ## 2. Parameters
 
@@ -154,7 +154,6 @@ This is the contract a careful agent deploys on its own account. It is one input
 - **Pool capital is donated in v1.** It has no shares and no withdrawals.
 - **The testnet agents are rule-based and the prompt injection is scripted.** Backstop assumes the agent will be fooled. It is about what happens next.
 - **No stablecoins yet.** v1 is denominated in NEAR.
-- **The testnet pool still has a deployer key.** Section 1 describes the contract: it has no admin method and its parameters cannot change. The account `pool.backstop-hq.testnet` still holds one full-access key, so the deployer could redeploy the code. A production pool deletes that key.
 - **Commitments are not bound to the juror.** A juror could copy another juror's commitment and reveal after them. The fix is `sha256(claim_id:juror:vote:salt)`.
 - **A Void claim consumes its loss transaction.** The claimant cannot refile it. The fix is to release the transaction hash on Void.
 - **No key rotation.** After the full-access key is deleted, an agent's function-call keys can exhaust their gas allowance and cannot be replaced. The fix is an owner-only `rotate_key` on the wallet.

@@ -88,7 +88,8 @@
   ],
   "notes": [
     "A Void or Rejected claim permanently consumes its loss transaction hash, so every round used fresh loss transfers.",
-    "Before round 3 the wallet owner (backstop-hq.testnet) raised the daily cap on bea.backstop-hq.testnet from 0.5 to 2 NEAR with set_policy so the scripted 0.2 NEAR loss could repeat. Daily cap is not a posture signal; bea still verifies 90."
+    "Before round 3 the wallet owner (backstop-hq.testnet) raised the daily cap on bea.backstop-hq.testnet from 0.5 to 2 NEAR with set_policy so the scripted 0.2 NEAR loss could repeat. Daily cap is not a posture signal; bea still verifies 90.",
+    "After round 5 the pool account's only access key was deleted. The pool contract can no longer be upgraded and its funds cannot be moved by anyone."
   ],
   "recordedClaims": [
     {
@@ -1348,6 +1349,11 @@
       "label": "resolve_claim_14",
       "hash": "EsjwDwwzc1zRb1daC4S6YEVnbgtLVTDhiuwDd9VYcCPK",
       "at": "2026-11-14T19:23:56.363Z"
+    },
+    {
+      "label": "lock_pool_delete_last_key",
+      "hash": "BdcQgnpVmcQWok8MZv6AsNJsyQ8UzHBmw9BBGK4rVkBL",
+      "at": "2026-11-14T20:30:32.269Z"
     }
   ]
 }

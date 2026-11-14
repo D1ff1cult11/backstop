@@ -31,7 +31,7 @@ So Backstop prices risk the way a car insurer prices brakes, except that **anyon
 | 1 | `git clone https://github.com/D1ff1cult11/backstop && cd backstop` | | – |
 | 2 | `npm test` | 23 tests pass | offline |
 | 3 | `npm run demo` | The `[SIM]` strategy table and 200-seed sweep, then every recorded testnet round with explorer links | offline |
-| 4 | `npm run verify` | Live: deployed code hashes match this repo's wasm; dex declares 95 and verifies 0; all 15 claims | testnet RPC, read-only |
+| 4 | `npm run verify` | Live: deployed code hashes match this repo's wasm; the pool has 0 access keys; dex declares 95 and verifies 0; all 15 claims | testnet RPC, read-only |
 | 5 | `npm run verify -- --account <any.testnet>` | The posture score and premium quote for **any** testnet account | testnet RPC, read-only |
 | 6 | `npm run web`, then open http://localhost:5173/web/ | The dashboard, with a "Score any account" box | live panels only |
 
@@ -74,7 +74,7 @@ Every parameter and formula is in [RULES.md](RULES.md). It was written before an
 
 ## What happened on testnet
 
-Five agents, each a sub-account of `backstop-hq.testnet`. Pool: [`pool.backstop-hq.testnet`](https://testnet.nearblocks.io/address/pool.backstop-hq.testnet). 161 transactions are recorded in [`deployments/testnet.json`](deployments/testnet.json).
+Five agents, each a sub-account of `backstop-hq.testnet`. Pool: [`pool.backstop-hq.testnet`](https://testnet.nearblocks.io/address/pool.backstop-hq.testnet). 162 transactions are recorded in [`deployments/testnet.json`](deployments/testnet.json).
 
 | Agent | Setup | Declared | Verified |
 |---|---|---|---|
@@ -118,6 +118,8 @@ Things a reader of the ledger should know:
 
 **Verifiable deployment.** The `code_hash` of the pool and of every wallet on testnet equals `sha256` of the committed `wasm/*.wasm`. `npm run verify` checks this live.
 
+**No admin.** After round 5 we deleted the pool account's only access key ([tx](https://testnet.nearblocks.io/txns/BdcQgnpVmcQWok8MZv6AsNJsyQ8UzHBmw9BBGK4rVkBL)). `pool.backstop-hq.testnet` now has **zero access keys**: nobody, including us, can upgrade the contract or move its funds. Check it with `near account list-keys pool.backstop-hq.testnet network-config testnet now`, or `npm run verify`.
+
 ## Simulation `[SIM]`
 
 20 agents with scripted strategies over 30 days, with no LLM calls. Seed 42 (`npm run demo`):
@@ -155,7 +157,7 @@ What this does and does not show: simulated jurors who reveal vote on the eviden
 | Payout caps, bond forfeit, slashing, Void | `resolve_claim` | 5 resolution tests in `contracts/pool/src/tests.rs`; rounds 1–5 | testnet |
 | 7 juror evidence checks, failing closed | `agents/juror.mjs` | `test/juror.test.mjs` (10 tests) | testnet |
 | Injected agent stopped by its wallet | `contracts/wallet/src/lib.rs` `pay` | 5 wallet tests; the atlas tx | testnet |
-| Deployed code equals the repo | `scripts/verify.mjs` | `npm run verify` | testnet |
+| Deployed code equals the repo; pool has no access keys | `scripts/verify.mjs` | `npm run verify` | testnet |
 | Liars and fraudsters lose | `sim/` | `test/sim.test.mjs`, `npm run sweep` | simulation |
 
 ## What is real and what is simulated
@@ -167,7 +169,6 @@ What this does and does not show: simulated jurors who reveal vote on the eviden
 ## Limitations
 
 - **Collusion fraud.** A member can pay an accomplice and claim. The deductible, the bond, the cover cap and the jury raise the cost; they do not remove it. This is the open problem.
-- **The pool still has a deployer key.** `pool.backstop-hq.testnet` has one full-access key, so the deployer could redeploy the contract. Parameters cannot be changed through the contract itself. A production pool would delete that key; `npm run verify` reports whether it exists.
 - **Commitments are not bound to the juror.** A juror could copy another juror's commitment and reveal after them. Fix: `sha256(claim_id:juror:vote:salt)`.
 - **A Void claim burns its loss transaction.** A claimant whose jury does not show up cannot refile. Fix: release the transaction hash on Void.
 - **Key rotation.** Once its full-access key is deleted, an agent's function-call keys can run out of gas allowance (0.5 NEAR here) and nobody can add new ones. Fix: an owner-only `rotate_key` on the wallet.
