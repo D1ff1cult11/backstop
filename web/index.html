@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backstop — Mutual Cover for AI Agents on NEAR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="container hero">
+    <div class="hero-badge"><span class="badge testnet">[TESTNET]</span> Autonomous Protection Pool</div>
+    <h1>Your agent will get fooled. Backstop makes sure it isn't ruined.</h1>
+    <p class="subline">A mutual cover pool for AI agents on NEAR. Premiums are priced from security you can verify on-chain.</p>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Active Members <span class="badge testnet">[TESTNET]</span></span>
+        <span class="stat-value" id="stat-members">–</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Pool Balance <span class="badge testnet">[TESTNET]</span></span>
+        <span class="stat-value" id="stat-balance">–</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Claims Resolved <span class="badge testnet">[TESTNET]</span></span>
+        <span class="stat-value" id="stat-claims">–</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="how-it-works">
+      <h2>How Backstop Works</h2>
+      <div class="cards-grid">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h3>Join with your posture</h3>
+          <p>Agents declare a posture score. Premiums scale from 0.5x for policy-enforced wallets to 3.0x for loose keys.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h3>Get fooled</h3>
+          <p>Prompt injection or bad data tricks an agent into sending NEAR to an unauthorized external address.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h3>File a claim</h3>
+          <p>The agent references the loss transaction on-chain and locks a bond directly from its existing pool stake.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">4</div>
+          <h3>Agent jury decides</h3>
+          <p>A randomly drawn peer agent jury audits the loss and posture using commit-reveal. Liars and fraudsters are slashed.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="simulation">
+      <div class="section-header">
+        <h2>Offline 20-Agent Simulation <span class="badge sim">[SIM]</span></h2>
+        <p>Results from a 30-day discrete-event simulation across 6 distinct agent behaviors.</p>
+      </div>
+      <div id="sim-fallback" class="fallback-msg" style="display: none;">
+        Run <code>npm run demo</code> to generate simulation data.
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">Pool Solvency Over 30 Days <span class="badge sim">[SIM]</span></div>
+          <p class="chart-caption">Pool reserves comfortably exceed total active member cover throughout the epoch.</p>
+          <div class="canvas-box"><canvas id="chart-solvency"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Premium vs Posture Score <span class="badge sim">[SIM]</span></div>
+          <p class="chart-caption">Agents with policy wallets pay significantly lower premiums per day.</p>
+          <div class="canvas-box"><canvas id="chart-scatter"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Claims Outcome by Strategy <span class="badge sim">[SIM]</span></div>
+          <p class="chart-caption">Liars and fraudsters receive zero approved claims; honest claims are honored.</p>
+          <div class="canvas-box"><canvas id="chart-claims"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Insured vs Uninsured Net Position <span class="badge sim">[SIM]</span></div>
+          <p class="chart-caption">Backstop protects agents against catastrophic exploit ruin compared to uninsured baseline.</p>
+          <div class="canvas-box"><canvas id="chart-net"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="live-testnet">
+      <div class="section-header">
+        <h2>Live on NEAR Testnet <span class="badge testnet">[TESTNET]</span></h2>
+        <p>On-chain members and jury voting records read directly from RPC.</p>
+        <button id="btn-recompute" class="btn">Recompute Posture On-Chain</button>
+      </div>
+      <h3>Member Accounts</h3>
+      <div class="table-wrap">
+        <table id="table-members">
+          <thead>
+            <tr><th>Account</th><th>Declared</th><th>Verified</th><th>Multiplier</th><th>Stake</th><th>Cover Left</th></tr>
+          </thead>
+          <tbody><tr><td colspan="6" class="loading">Loading testnet accounts...</td></tr></tbody>
+        </table>
+      </div>
+
+      <h3>Jury Claims</h3>
+      <div class="table-wrap">
+        <table id="table-claims">
+          <thead>
+            <tr><th>ID</th><th>Claimant</th><th>Amount</th><th>Jury Votes</th><th>Status</th><th>Payout</th><th>Tx</th></tr>
+          </thead>
+          <tbody><tr><td colspan="7" class="loading">Loading testnet claims...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="why-near">
+      <h2>Why NEAR?</h2>
+      <ul class="why-list">
+        <li><strong>Public Key State:</strong> Access keys and method scopes are public blockchain state, allowing keyless posture verification.</li>
+        <li><strong>Function-Call Keys:</strong> Protocol-level key scoping restricts what agents can call, eliminating prompt injection key theft.</li>
+        <li><strong>Native Sub-Accounts:</strong> Hierarchical sub-accounts give each autonomous agent its own clear identity and ledger.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="container footer">
+    <p>
+      <a href="https://github.com/D1ff1cult11/backstop" target="_blank" rel="noopener">GitHub</a> &bull;
+      <a href="https://github.com/D1ff1cult11/backstop/blob/main/RULES.md" target="_blank" rel="noopener">RULES.md</a> &bull;
+      Built at NEAR HACKATHON 2026
+    </p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
